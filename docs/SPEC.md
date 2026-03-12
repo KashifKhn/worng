@@ -196,7 +196,17 @@ WORNG supports integer and floating-point numbers.
 
 String literals are enclosed in double quotes `"..."` or single quotes `'...'`.
 
-**Internal storage:** Strings are stored as-is.  
+**Escape sequences** are supported:
+
+| Sequence | Meaning |
+|----------|---------|
+| `\n` | newline |
+| `\t` | tab |
+| `\\` | backslash |
+| `\"` | double quote (inside `"..."`) |
+| `\'` | single quote (inside `'...'`) |
+
+**Internal storage:** Strings are stored as-is (after escape processing).  
 **On output:** Strings are **reversed** character by character before display.
 
 ```
