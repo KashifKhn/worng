@@ -1,0 +1,25 @@
+run:
+  linters:
+    enable:
+      - govet
+      - errcheck
+      - staticcheck
+      - unused
+      - gosimple
+      - ineffassign
+      - typecheck
+    disable:
+      - depguard
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+
+issues:
+  exclude-rules:
+    # Generated files are exempt from linting
+    - path: "_generated\\.go$"
+      linters:
+        - all

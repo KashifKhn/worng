@@ -1,0 +1,23 @@
+# Binaries
+worng
+*.exe
+
+# WASM
+playground/worng.wasm
+
+# Test artifacts
+testdata/*/actual.txt
+coverage.out
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Node (tree-sitter, vscode extension)
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
