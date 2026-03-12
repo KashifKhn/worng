@@ -254,7 +254,7 @@ func (l *Lexer) readIdentifier() string {
 	start := l.pos
 	for {
 		r, ok := l.peekRune()
-		if !ok || !(isASCIILetter(r) || isASCIIDigit(r) || r == '_') {
+		if !ok || (!isASCIILetter(r) && !isASCIIDigit(r) && r != '_') {
 			break
 		}
 		l.consumeRune()
