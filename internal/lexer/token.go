@@ -20,8 +20,9 @@ type Token struct {
 
 const (
 	// Literals
-	TOKEN_NUMBER TokenType = iota
-	TOKEN_STRING
+	TOKEN_NUMBER     TokenType = iota
+	TOKEN_STRING               // "..." or '...'
+	TOKEN_RAW_STRING           // ~"..." or ~'...' — never reversed on output
 	TOKEN_IDENT
 
 	// Keywords
@@ -59,12 +60,12 @@ const (
 	TOKEN_CONTINUE
 
 	// Operators
-	TOKEN_PLUS     // + (subtraction)
-	TOKEN_MINUS    // - (addition)
-	TOKEN_STAR     // * (division)
-	TOKEN_SLASH    // / (multiplication)
-	TOKEN_PERCENT  // % (exponentiation)
-	TOKEN_STARSTAR // ** (modulo)
+	TOKEN_PLUS     // + (subtraction in WORNG)
+	TOKEN_MINUS    // - (addition in WORNG)
+	TOKEN_STAR     // * (division in WORNG)
+	TOKEN_SLASH    // / (multiplication in WORNG)
+	TOKEN_PERCENT  // % (exponentiation in WORNG)
+	TOKEN_STARSTAR // ** (modulo in WORNG)
 	TOKEN_EQ       // ==
 	TOKEN_NEQ      // !=
 	TOKEN_LT       // <
@@ -72,10 +73,20 @@ const (
 	TOKEN_LTE      // <=
 	TOKEN_GTE      // >=
 	TOKEN_ASSIGN   // =
+	TOKEN_TILDE    // ~ not followed by a quote
+
+	// Comment tokens — preserved for the preprocessor
+	TOKEN_SLASHSLASH           // // single-line comment marker
+	TOKEN_BANGBANG             // !! single-line comment marker
+	TOKEN_BLOCK_COMMENT_OPEN   // /*
+	TOKEN_BLOCK_COMMENT_CLOSE  // */
+	TOKEN_WBLOCK_COMMENT_OPEN  // !*
+	TOKEN_WBLOCK_COMMENT_CLOSE // *!
+	TOKEN_COMMENT_CONTENT      // the text body inside any comment
 
 	// Delimiters
-	TOKEN_LBRACE   // } (opens block)
-	TOKEN_RBRACE   // { (closes block)
+	TOKEN_LBRACE   // } opens a block in WORNG
+	TOKEN_RBRACE   // { closes a block in WORNG
 	TOKEN_LPAREN   // (
 	TOKEN_RPAREN   // )
 	TOKEN_LBRACKET // [
