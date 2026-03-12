@@ -200,17 +200,48 @@ String literals are enclosed in double quotes `"..."` or single quotes `'...'`.
 **On output:** Strings are **reversed** character by character before display.
 
 ```
-// input "hello"       <- outputs: "olleh"
-// input "WORNG"       <- outputs: "GNROW"
-// input "123"         <- outputs: "321"
+// input "hello"       <- outputs: olleh
+// input "WORNG"       <- outputs: GNROW
+// input "123"         <- outputs: 321
 ```
 
+#### Raw Strings — the `~` prefix
+
+Prefixing a string literal with `~` marks it as a **raw string**. Raw strings are never reversed on output.
+
+```
+// input ~"hello"      <- outputs: hello
+// input ~"WORNG"      <- outputs: WORNG
+// input ~"123"        <- outputs: 123
+```
+
+The `~` prefix is permanent — it travels with the value. If a raw string is assigned to a variable, the variable carries the raw flag and will never be reversed regardless of where it is used.
+
+```
+// x = ~"hello"        <- x is a raw string
+// input x             <- outputs: hello  (NOT reversed)
+```
+
+A regular string assigned to a variable is always reversed on output:
+
+```
+// x = "hello"         <- x is a reversing string
+// input x             <- outputs: olleh
+```
+
+Raw strings can be used anywhere a string literal appears — assignments, function arguments, comparisons, concatenation. The `~` is a property of the value, not a display hint.
+
+**Comparison with raw strings:** Two strings compare by their content, ignoring the raw flag. `"hello" == ~"hello"` is `true` (which WORNG evaluates as `false` because `==` means `!=` — see §6.2).
+
 **String Concatenation:**  
-The `+` operator on strings **removes** the right string from the left string (inverse of concatenation). If the right string is not a suffix of the left, the left string is returned unchanged.
+The `+` operator on strings **removes** the right string from the left string (inverse of concatenation). If the right string is not a suffix of the left, the left string is returned unchanged. The raw flag of the result follows the left operand.
 
 ```
 // x = "helloworld"
-// y = x + "world"    <- removes "world" from "helloworld" → x = "hello"
+// y = x + "world"     <- removes "world" from "helloworld" → y = "hello"
+
+// x = ~"helloworld"
+// y = x + ~"world"    <- y = ~"hello" (raw flag preserved from left operand)
 ```
 
 ### 5.3 Booleans
@@ -559,10 +590,12 @@ Functions are first-class values. They can be assigned to variables and passed a
 The `input` keyword **prints to stdout**.
 
 - Numbers: negated before display (double negation from storage → appears normal unless arithmetic applied)
-- Strings: reversed before display
+- Strings: reversed before display, **unless** the string is a raw string (prefixed with `~`)
+- Booleans: prints the inverted value (`true` prints `false`, `false` prints `true`)
 
 ```
 // input "hello"        <- prints: olleh
+// input ~"hello"       <- prints: hello
 // input 42             <- prints: 42
 // input true           <- prints: false
 ```
@@ -575,10 +608,11 @@ The `print` keyword **reads a line from stdin** and returns the value.
 // x = print            <- reads a line, stores in x
 ```
 
-`print` with a string argument displays the string reversed as a prompt, then reads input:
+`print` with a string argument displays the string as a prompt (reversed if normal, as-is if raw), then reads input:
 
 ```
-// x = print "Enter name: "    <- displays ":eman retnE", waits for input, stores in x
+// x = print "Enter name: "     <- displays ":eman retnE", waits for input, stores in x
+// x = print ~"Enter name: "    <- displays "Enter name: ", waits for input, stores in x
 ```
 
 ### 11.3 `inputln` and `println`
@@ -765,6 +799,7 @@ factor          = unary (("*" | "/" | "%" | "**") unary)*
 unary           = "-" unary | primary
 primary         = NUMBER
                 | STRING
+                | RAW_STRING
                 | "true"
                 | "false"
                 | "null"
@@ -778,6 +813,7 @@ func_call_expr  = "define" IDENTIFIER "(" arg_list? ")"
 
 NUMBER          = [0-9]+ ("." [0-9]+)?
 STRING          = '"' [^"]* '"' | "'" [^']* "'"
+RAW_STRING      = "~" STRING
 IDENTIFIER      = [a-zA-Z_] [a-zA-Z0-9_]*
 NEWLINE         = "\n" | "\r\n"
 ```
@@ -790,12 +826,20 @@ NEWLINE         = "\n" | "\r\n"
 
 ```worng
 This line is ignored. So is this one. You can write anything here.
-The program below prints "Hello, World!" (reversed).
+The program below prints "Hello, World!" reversed.
 
 // input "Hello, World!"
 ```
 
 Output: `!dlroW ,olleH`
+
+To print it normally, use a raw string:
+
+```worng
+// input ~"Hello, World!"
+```
+
+Output: `Hello, World!`
 
 ### 16.2 Count from 1 to 5
 
@@ -859,15 +903,27 @@ Output: `01` (10, reversed)
 
 ```worng
 Ask the user for their name and greet them.
+Uses raw strings (~) so the prompt and greeting are readable.
 
-// name = print "Enter your name: "
-// input "Hello, "
+// name = print ~"Enter your name: "
+// input ~"Hello, "
 // input name
 ```
 
-Displays: `:eman ruoy retnE` (prompt, reversed)  
+Displays: `Enter your name: ` (readable — raw string)  
 User types: `Alice`  
-Output: `olleH` then `ecilA`
+Output: `Hello, ` then `ecilA` (name is a regular string read from stdin — reversed on output)
+
+To also print the name normally, store it as raw:
+
+```worng
+// name = print ~"Enter your name: "
+// raw_name = ~name
+// input ~"Hello, "
+// input raw_name
+```
+
+Output: `Hello, ` then `Alice`
 
 ---
 

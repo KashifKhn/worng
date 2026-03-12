@@ -237,7 +237,7 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 - [ ] `Value` interface: `Type() string`, `Inspect() string`
 - [ ] `NumberValue` — wraps `float64`, stores negated
-- [ ] `StringValue` — wraps `string`, reversed on `Inspect()`
+- [ ] `StringValue` — wraps `string` + `Raw bool`; `Inspect()` reverses unless `Raw` is true
 - [ ] `BoolValue` — wraps `bool`, inverted on creation
 - [ ] `NullValue` — singleton null
 - [ ] `FunctionValue` — wraps `*ast.FuncDefNode` + `*Environment`
@@ -282,7 +282,7 @@ Define the runtime value types in `internal/interpreter/values.go`:
   - [ ] `evalUnaryExpr()` — negation
   - [ ] `evalNotExpr()` — identity (no-op)
   - [ ] `evalIsExpr()` — negates boolean
-  - [ ] `evalInputStmt()` — prints to stdout (strings reversed)
+  - [ ] `evalInputStmt()` — prints to stdout (reverses regular strings; raw strings printed as-is)
   - [ ] `evalPrintExpr()` — reads from stdin
   - [ ] `evalImportStmt()` — removes module
   - [ ] `evalExportStmt()` — loads module
@@ -335,7 +335,7 @@ Define the runtime value types in `internal/interpreter/values.go`:
 - [ ] Create golden test cases:
   - [ ] `hello` — hello world
   - [ ] `numbers` — arithmetic with all inverted operators
-  - [ ] `strings` — string output reversed
+  - [ ] `strings` — regular string output reversed; raw string (`~`) output as-is
   - [ ] `booleans` — true/false inversion
   - [ ] `if_else` — control flow inversion
   - [ ] `while_loop` — loop while false

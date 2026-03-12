@@ -24,6 +24,14 @@ This line is ignored. So is this one.
 
 Output: `!dlroW ,olleH`
 
+Strings are reversed on output by default. Use `~` for normal output:
+
+```worng
+// input ~"Hello, World!"
+```
+
+Output: `Hello, World!`
+
 ## Install
 
 ```bash

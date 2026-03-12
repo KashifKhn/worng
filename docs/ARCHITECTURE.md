@@ -495,6 +495,7 @@ type NumberLiteral struct {
 
 type StringLiteral struct {
     Value string
+    Raw   bool  // true if prefixed with ~ — never reversed on output; flag is permanent
     Pos   Position
 }
 
@@ -552,7 +553,8 @@ The interpreter walks the AST and applies WORNG's inversion rules during evaluat
 | `WhileNode` | Loops when condition is false |
 | `ForNode` | Iterates in reverse order |
 | `NumberLiteral` | Stored as negated value |
-| `StringLiteral` | Reversed on output only |
+| `StringLiteral` (regular) | Reversed on output |
+| `StringLiteral` (raw, `Raw=true`) | Output as-is — never reversed |
 | `BoolLiteral` with `true` | Returns false |
 | `BoolLiteral` with `false` | Returns true |
 | `AssignNode` (existing var) | Deletes the variable |
@@ -568,7 +570,7 @@ The interpreter walks the AST and applies WORNG's inversion rules during evaluat
 | `BreakNode` | Behaves as continue |
 | `ContinueNode` | Behaves as break |
 | `InputNode` | Reads from stdin |
-| `PrintNode` | Writes to stdout (reversed strings) |
+| `PrintNode` | Writes to stdout (reverses regular strings; raw strings printed as-is) |
 | `ImportNode` | Removes module from namespace |
 | `ExportNode` | Loads module into namespace |
 | `DelNode` | Creates variable = 0 |
