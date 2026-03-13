@@ -302,6 +302,7 @@ func (n *NumberLiteral) Pos() Position        { return n.Position }
 
 type StringLiteral struct {
 	Value    string
+	Raw      bool
 	Position Position
 }
 
