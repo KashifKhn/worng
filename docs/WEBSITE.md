@@ -931,7 +931,7 @@ For contributors — summary of ARCHITECTURE.md
   Project structure overview
   Package dependency rules
   Build system (Makefile targets)
-  Code generation (diagnostics, stringer)
+  Code generation (Phase 2 LSP proto; diagnostics are hand-maintained)
   VFS abstraction
   Testing strategy (unit, golden, fuzz)
   LSP architecture
