@@ -20,7 +20,8 @@ test-fuzz:
 	go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=30s
 
 generate:
-	go generate ./...
+	@echo "No code generation in this project."
+	@echo "LSP protocol types (internal/lsp/lsproto) will be generated in Phase 2."
 
 fmt:
 	gofmt -w .

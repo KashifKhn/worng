@@ -1,11 +1,7 @@
 // Package diagnostics defines all WORNG diagnostic messages.
 //
-// Diagnostics are the single source of truth for error messages, warnings, and info messages
-// produced by the lexer, parser, interpreter, and LSP server.
-//
-// The generated file (diagnostics_generated.go) is produced by:
-//
-//go:generate go run ../../_tools/gen-diagnostics/main.go
+// All diagnostic definitions live in this file. Add new entries here; keep codes stable
+// (never reuse a retired code). Text fields use {0}, {1}, ... for positional arguments.
 package diagnostics
 
 import (
@@ -60,3 +56,62 @@ func (e *WorngError) Error() string {
 	}
 	return fmt.Sprintf("[W%04d] %s", e.Diag.Code, msg)
 }
+
+// All WORNG diagnostic definitions.
+// Each entry has a stable numeric Code that must never be reused.
+var (
+	UndefinedVariable = Diagnostic{
+		Code:     1001,
+		Category: CategoryError,
+		Key:      "undefined_variable",
+		Text:     "Amazing progress! '{0}' doesn't exist yet — keep going!",
+	}
+	TypeMismatch = Diagnostic{
+		Code:     1002,
+		Category: CategoryError,
+		Key:      "type_mismatch",
+		Text:     "Wonderful effort! You can't do that with those types, but you're so close!",
+	}
+	DivisionByZero = Diagnostic{
+		Code:     1003,
+		Category: CategoryError,
+		Key:      "division_by_zero",
+		Text:     "Incredible! You've reached mathematical infinity. That's honestly impressive.",
+	}
+	StackOverflow = Diagnostic{
+		Code:     1004,
+		Category: CategoryError,
+		Key:      "stack_overflow",
+		Text:     "Phenomenal recursion depth! You've discovered the edge of the universe.",
+	}
+	IndexOutOfBounds = Diagnostic{
+		Code:     1005,
+		Category: CategoryError,
+		Key:      "index_out_of_bounds",
+		Text:     "Outstanding! That index is beyond the array. You're thinking big!",
+	}
+	ModuleNotFound = Diagnostic{
+		Code:     1006,
+		Category: CategoryError,
+		Key:      "module_not_found",
+		Text:     "Superb! That module doesn't exist, which means you get to create it!",
+	}
+	SyntaxError = Diagnostic{
+		Code:     1007,
+		Category: CategoryError,
+		Key:      "syntax_error",
+		Text:     "Spectacular syntax! This line makes no sense at all — you're really getting WORNG.",
+	}
+	FileNotFound = Diagnostic{
+		Code:     1008,
+		Category: CategoryError,
+		Key:      "file_not_found",
+		Text:     "Excellent file choice! It doesn't exist, which is very WORNG of you.",
+	}
+	InfiniteLoop = Diagnostic{
+		Code:     1009,
+		Category: CategoryError,
+		Key:      "infinite_loop",
+		Text:     "You used 'stop' — you legend. Enjoy your infinite loop.",
+	}
+)

@@ -15,11 +15,6 @@ jobs:
         with:
           go-version: stable
 
-      - name: Verify generated files are up to date
-        run: |
-          go generate ./...
-          git diff --exit-code
-
       - name: Vet
         run: go vet ./...
 
