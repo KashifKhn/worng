@@ -82,7 +82,7 @@ test           # Run all tests
 test-unit      # Run unit tests only
 test-golden    # Run golden file integration tests (testdata/)
 test-fuzz      # Run fuzz tests (30 seconds)
-generate       # Run all //go:generate directives (diagnostics + stringer)
+generate       # Reserved for future code generation (LSP proto in Phase 2)
 fmt            # Format all Go code
 lint           # Run golangci-lint
 clean          # Remove build artifacts
@@ -101,7 +101,6 @@ On: push to main, all pull requests
 
 Jobs:
   test:
-    - go generate ./...   (verify generated files are up to date)
     - go vet ./...
     - go test ./... -race -coverprofile=coverage.out
     - Upload coverage to codecov (optional)
@@ -142,8 +141,6 @@ Scaffold the shared utility packages before Phase 1 begins:
 **Approach:** TDD — write tests first, then implement.
 
 - [ ] Define all `TokenType` constants in `internal/lexer/token.go` — use `int16` (not `int`) for compact representation
-- [ ] Add `//go:generate` directive in `token.go` to produce `kind_stringer_generated.go` (human-readable token names for errors)
-- [ ] Run `go generate ./internal/lexer/...` and commit the generated stringer file
 - [ ] Define `Token` struct with `Type TokenType`, `Literal string`, `Line int`, `Column int`
 - [ ] Write unit tests for every token type:
   - [ ] Keywords: `if`, `else`, `while`, `for`, `call`, `define`, `return`, `discard`, `input`, `print`, `import`, `export`, `del`, `global`, `local`, `true`, `false`, `null`, `not`, `is`, `and`, `or`, `break`, `continue`, `stop`, `try`, `except`, `finally`, `raise`, `match`, `case`, `in`
@@ -303,16 +300,13 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ---
 
-### 1.8 Diagnostics + Code Generation `[S]`
+### 1.8 Diagnostics `[S]`
 
-- [ ] Create `internal/diagnostics/diagnostics.json` — source of truth for all diagnostic codes, categories, and message templates
-- [ ] Implement `_tools/gen-diagnostics/main.go` — reads JSON, generates `diagnostics_generated.go`
-- [ ] Add `//go:generate go run ../../_tools/gen-diagnostics/main.go` directive in `internal/diagnostics/diagnostics.go`
-- [ ] Run `go generate ./internal/diagnostics/...` and commit the generated file
-- [ ] Implement `WorngError` struct wrapping `Diagnostic` + `Position` + `Args`
-- [ ] Implement `New(d Diagnostic, pos Position, args ...string) *WorngError`
-- [ ] Implement `Error() string` — formats message template with args
-- [ ] Unit tests for each diagnostic message format (substitution, position inclusion)
+- [x] Define all diagnostic codes and message templates directly in `internal/diagnostics/diagnostics.go` (hand-maintained; no code generation)
+- [x] Implement `WorngError` struct wrapping `Diagnostic` + `Position` + `Args`
+- [x] Implement `New(d Diagnostic, pos Position, args ...string) *WorngError`
+- [x] Implement `Error() string` — formats message template with args
+- [x] Unit tests for each diagnostic message format (substitution, position inclusion)
 
 ---
 
@@ -681,7 +675,7 @@ Phase 0
         ├── 1.5 Values
         ├── 1.6 Environment     ← depends on Values
         ├── 1.7 Interpreter     ← depends on Parser + Values + Environment
-        ├── 1.8 Diagnostics     ← code-generated; used by all components
+        ├── 1.8 Diagnostics     ← hand-maintained; used by all components
         ├── 1.9 CLI             ← depends on Interpreter
         ├── 1.10 Golden Tests   ← depends on CLI + internal/vfs
         └── 1.11 Fuzz Tests     ← depends on Lexer + Parser

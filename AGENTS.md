@@ -37,9 +37,7 @@ go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=30s
 go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=30s
 
 # Code generation
-make generate                     # go generate ./...
-go generate ./internal/diagnostics/...
-go generate ./internal/lexer/...
+make generate                     # (reserved for Phase 2 LSP proto generation; currently a no-op)
 
 # Format + lint
 make fmt                          # gofmt -w .
@@ -63,7 +61,7 @@ internal/
   lexer/            token.go lexer.go
   ast/              nodes.go
   parser/           parser.go
-  diagnostics/      diagnostics.go diagnostics_generated.go
+  diagnostics/      diagnostics.go
   interpreter/      interpreter.go environment.go values.go builtins.go
   vfs/              vfs.go
   jsonrpc/          jsonrpc.go baseproto.go
@@ -71,12 +69,11 @@ internal/
     lsproto/        types_generated.go               (DO NOT EDIT — generated)
 playground/         main.go                          (build tag: js && wasm)
 testdata/           golden test fixtures
-_tools/             code generators                  (excluded from go build ./...)
 _build/             CI scripts                       (excluded from go build ./...)
 docs/               SPEC.md ARCHITECTURE.md ROADMAP.md WEBSITE.md
 ```
 
-`_tools/` and `_build/` use Go's `_` prefix convention — they are never compiled by `go build ./...`.
+`_build/` uses Go's `_` prefix convention — it is never compiled by `go build ./...`.
 
 ---
 
@@ -249,10 +246,8 @@ import (
 
 ### Generated Files
 
-- `internal/diagnostics/diagnostics_generated.go` — produced by `_tools/gen-diagnostics/`; do not edit by hand
-- `internal/lexer/kind_stringer_generated.go` — produced by `_tools/gen-stringer/` (or `golang.org/x/tools/cmd/stringer`)
-- `internal/lsp/lsproto/types_generated.go` — produced from LSP 3.17 schema
-- Edit the generator or source JSON; never edit the generated file directly
+- `internal/lsp/lsproto/types_generated.go` — will be produced from LSP 3.17 schema in Phase 2; currently a hand-written stub
+- Edit the generator or source schema; never edit generated files directly
 
 ### Virtual Filesystem
 
