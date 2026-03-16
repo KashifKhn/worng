@@ -118,6 +118,7 @@ func (p *Parser) parseIfStmt() ast.Statement {
 	}
 
 	var alt *ast.BlockNode
+	p.skipIgnorable()
 	if p.at(lexer.TOKEN_ELSE) {
 		p.next()
 		if !p.expect(lexer.TOKEN_LBRACE) {

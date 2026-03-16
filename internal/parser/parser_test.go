@@ -290,6 +290,29 @@ func TestParseIfElseStmt(t *testing.T) {
 	}
 }
 
+func TestParseIfElseStmtWithBlankLineBeforeElse(t *testing.T) {
+	t.Parallel()
+
+	source := "if x == 1 }\ninput x\n{\n\nelse }\ninput y\n{\n"
+	program, errs := parseProgramFromSource(t, source)
+	assertNoParseErrors(t, errs)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("statement count = %d, want 1", len(program.Statements))
+	}
+
+	n, ok := program.Statements[0].(*ast.IfNode)
+	if !ok {
+		t.Fatalf("statement type = %T, want *ast.IfNode", program.Statements[0])
+	}
+	if n.Alternative == nil {
+		t.Fatalf("if alternative should not be nil")
+	}
+	if len(n.Alternative.Statements) != 1 {
+		t.Fatalf("alternative statements = %d, want 1", len(n.Alternative.Statements))
+	}
+}
+
 func TestParseIfWithoutElse(t *testing.T) {
 	t.Parallel()
 
