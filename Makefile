@@ -13,7 +13,7 @@ test-unit:
 	go test ./... -race
 
 test-golden:
-	go test ./internal/golden -run TestGolden
+	go test ./internal/golden -run TestGolden -v
 
 test-fuzz:
 	go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=30s
