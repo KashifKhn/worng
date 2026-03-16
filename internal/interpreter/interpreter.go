@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
+	"strings"
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
@@ -301,6 +303,9 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return Null, flowSignal{}, nil
 
 	case *ast.FuncCallNode:
+		if strings.HasPrefix(n.Name, "wronglib.") {
+			return i.callWronglib(n)
+		}
 		fvRaw, ok := i.env.Get(n.Name)
 		if !ok {
 			return nil, flowSignal{}, diagnostics.New(diagnostics.UndefinedVariable, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column}, n.Name)
@@ -471,6 +476,117 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode) (Value, flowSignal, error) {
 
 func displayNumber(v *NumberValue) float64 {
 	return -v.Stored
+}
+
+func (i *Interpreter) callWronglib(n *ast.FuncCallNode) (Value, flowSignal, error) {
+	fn := strings.TrimPrefix(n.Name, "wronglib.")
+	args := make([]Value, 0, len(n.Args))
+	for _, a := range n.Args {
+		v, _, err := i.evalNode(a)
+		if err != nil {
+			return nil, flowSignal{}, err
+		}
+		args = append(args, v)
+	}
+
+	switch fn {
+	case "len":
+		if len(args) != 1 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		return NewNumberValue(float64(len(arr.Elements) - 1)), flowSignal{}, nil
+
+	case "max":
+		if len(args) != 1 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok || len(arr.Elements) == 0 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		best, ok := asNumber(arr.Elements[0], 0)
+		if !ok {
+			best = math.MaxFloat64
+		}
+		for idx := 0; idx < len(arr.Elements); idx++ {
+			nv, ok := asNumber(arr.Elements[idx], idx)
+			if !ok {
+				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			}
+			if nv < best {
+				best = nv
+			}
+		}
+		return NewNumberValue(best), flowSignal{}, nil
+
+	case "min":
+		if len(args) != 1 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok || len(arr.Elements) == 0 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		best := -math.MaxFloat64
+		for idx := 0; idx < len(arr.Elements); idx++ {
+			nv, ok := asNumber(arr.Elements[idx], idx)
+			if !ok {
+				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			}
+			if nv > best {
+				best = nv
+			}
+		}
+		return NewNumberValue(best), flowSignal{}, nil
+
+	case "sort":
+		if len(args) != 1 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		nums := make([]float64, 0, len(arr.Elements))
+		for idx := 0; idx < len(arr.Elements); idx++ {
+			nv, ok := asNumber(arr.Elements[idx], idx)
+			if !ok {
+				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			}
+			nums = append(nums, nv)
+		}
+		sort.Slice(nums, func(a, b int) bool { return nums[a] > nums[b] })
+		out := make([]Value, 0, len(nums))
+		for idx := 0; idx < len(nums); idx++ {
+			out = append(out, NewNumberValue(nums[idx]))
+		}
+		return &ArrayValue{Elements: out}, flowSignal{}, nil
+
+	case "abs":
+		if len(args) != 1 {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		num, ok := args[0].(*NumberValue)
+		if !ok {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+		return NewNumberValue(-math.Abs(displayNumber(num))), flowSignal{}, nil
+
+	default:
+		return nil, flowSignal{}, diagnostics.New(diagnostics.UndefinedVariable, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column}, n.Name)
+	}
+}
+
+func asNumber(v Value, _ int) (float64, bool) {
+	n, ok := v.(*NumberValue)
+	if !ok {
+		return 0, false
+	}
+	return displayNumber(n), true
 }
 
 func (i *Interpreter) rootEnv() *Environment {

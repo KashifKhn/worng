@@ -393,6 +393,7 @@ func (p *Parser) parseTryStmt() ast.Statement {
 	}
 
 	var exc *ast.ExceptClause
+	p.skipIgnorable()
 	if p.at(lexer.TOKEN_EXCEPT) {
 		exc = p.parseExceptClause()
 		if exc == nil {
@@ -401,6 +402,7 @@ func (p *Parser) parseTryStmt() ast.Statement {
 	}
 
 	var fin *ast.FinallyClause
+	p.skipIgnorable()
 	if p.at(lexer.TOKEN_FINALLY) {
 		fin = p.parseFinallyClause()
 		if fin == nil {
@@ -639,7 +641,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 func (p *Parser) parseDefineCallExpr() ast.Expression {
 	tok := p.next()
-	nameTok, ok := p.expectIdent()
+	name, ok := p.parseQualifiedIdent()
 	if !ok || !p.expect(lexer.TOKEN_LPAREN) {
 		return nil
 	}
@@ -664,7 +666,24 @@ func (p *Parser) parseDefineCallExpr() ast.Expression {
 		return nil
 	}
 
-	return &ast.FuncCallNode{Name: nameTok.Literal, Args: args, Position: toASTPos(tok)}
+	return &ast.FuncCallNode{Name: name, Args: args, Position: toASTPos(tok)}
+}
+
+func (p *Parser) parseQualifiedIdent() (string, bool) {
+	first, ok := p.expectIdent()
+	if !ok {
+		return "", false
+	}
+	name := first.Literal
+	for p.at(lexer.TOKEN_DOT) {
+		p.next()
+		next, ok := p.expectIdent()
+		if !ok {
+			return "", false
+		}
+		name += "." + next.Literal
+	}
+	return name, true
 }
 
 func (p *Parser) parsePrintExpr() *ast.PrintNode {
