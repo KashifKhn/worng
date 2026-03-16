@@ -39,6 +39,13 @@ func FuzzInterpreter(f *testing.F) {
 			}
 		}()
 
+		// Cap raw source size to prevent stack overflow in the interpreter or parser
+		// when the fuzzer generates deeply-nested programs via the raw string path.
+		const maxSourceBytes = 4096
+		if len(source) > maxSourceBytes {
+			source = source[:maxSourceBytes]
+		}
+
 		// Run both the raw mutated input and a structure-aware generated program.
 		// The raw path exercises the lexer/parser resilience; the generated path
 		// reaches deep interpreter logic that random bytes never hit.

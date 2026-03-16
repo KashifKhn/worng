@@ -29,6 +29,10 @@ type flowSignal struct {
 	value Value
 }
 
+// maxEvalDepth is the maximum AST evaluation depth. Deeply-nested programs that
+// exceed this return a WorngError instead of overflowing the Go call stack.
+const maxEvalDepth = 200
+
 type Interpreter struct {
 	env         *Environment
 	stdout      io.Writer
@@ -75,7 +79,7 @@ func (i *Interpreter) Run(program *ast.ProgramNode) error {
 }
 
 func (i *Interpreter) Eval(node ast.Node) (Value, error) {
-	v, sig, err := i.evalNode(node)
+	v, sig, err := i.evalNode(node, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +89,15 @@ func (i *Interpreter) Eval(node ast.Node) (Value, error) {
 	return v, nil
 }
 
-func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
+func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, error) {
+	if depth > maxEvalDepth {
+		return nil, flowSignal{}, diagnostics.New(diagnostics.StackOverflow, diagnostics.Position{})
+	}
+
 	switch n := node.(type) {
 	case *ast.ProgramNode:
 		for _, st := range n.Statements {
-			_, sig, err := i.evalNode(st)
+			_, sig, err := i.evalNode(st, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -101,7 +109,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 
 	case *ast.BlockNode:
 		for _, st := range n.Statements {
-			_, sig, err := i.evalNode(st)
+			_, sig, err := i.evalNode(st, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -112,7 +120,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return Null, flowSignal{}, nil
 
 	case *ast.ExprStmt:
-		v, _, err := i.evalNode(n.Expr)
+		v, _, err := i.evalNode(n.Expr, depth+1)
 		return v, flowSignal{}, err
 
 	case *ast.NumberLiteral:
@@ -126,7 +134,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 	case *ast.ArrayLiteral:
 		elems := make([]Value, 0, len(n.Elements))
 		for _, e := range n.Elements {
-			v, _, err := i.evalNode(e)
+			v, _, err := i.evalNode(e, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -142,7 +150,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return v, flowSignal{}, nil
 
 	case *ast.AssignNode:
-		v, _, err := i.evalNode(n.Value)
+		v, _, err := i.evalNode(n.Value, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -158,10 +166,10 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return v, flowSignal{}, nil
 
 	case *ast.BinaryNode:
-		return i.evalBinary(n)
+		return i.evalBinary(n, depth+1)
 
 	case *ast.UnaryNode:
-		v, _, err := i.evalNode(n.Operand)
+		v, _, err := i.evalNode(n.Operand, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -185,7 +193,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		}
 
 	case *ast.InputNode:
-		v, _, err := i.evalNode(n.Value)
+		v, _, err := i.evalNode(n.Value, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -197,7 +205,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 
 	case *ast.PrintNode:
 		if n.Prompt != nil {
-			pv, _, err := i.evalNode(n.Prompt)
+			pv, _, err := i.evalNode(n.Prompt, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -218,16 +226,16 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return NewStringValue(line, false), flowSignal{}, nil
 
 	case *ast.IfNode:
-		cv, _, err := i.evalNode(n.Condition)
+		cv, _, err := i.evalNode(n.Condition, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
 		if !cv.IsTruthy() {
-			_, sig, err := i.evalNode(n.Consequence)
+			_, sig, err := i.evalNode(n.Consequence, depth+1)
 			return Null, sig, err
 		}
 		if n.Alternative != nil {
-			_, sig, err := i.evalNode(n.Alternative)
+			_, sig, err := i.evalNode(n.Alternative, depth+1)
 			return Null, sig, err
 		}
 		return Null, flowSignal{}, nil
@@ -235,14 +243,14 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 	case *ast.WhileNode:
 	whileLoop:
 		for {
-			cv, _, err := i.evalNode(n.Condition)
+			cv, _, err := i.evalNode(n.Condition, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
 			if cv.IsTruthy() {
 				break
 			}
-			_, sig, err := i.evalNode(n.Body)
+			_, sig, err := i.evalNode(n.Body, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -258,7 +266,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return Null, flowSignal{}, nil
 
 	case *ast.ForNode:
-		iter, _, err := i.evalNode(n.Iterable)
+		iter, _, err := i.evalNode(n.Iterable, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -269,7 +277,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		for idx := len(arr.Elements) - 1; idx >= 0; idx-- {
 			// Loop variable rebinding is internal control-flow state, not user assignment.
 			i.env.store[n.Variable] = arr.Elements[idx]
-			_, sig, err := i.evalNode(n.Body)
+			_, sig, err := i.evalNode(n.Body, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -292,7 +300,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 	case *ast.ReturnNode:
 		return Null, flowSignal{}, nil
 	case *ast.DiscardNode:
-		v, _, err := i.evalNode(n.Value)
+		v, _, err := i.evalNode(n.Value, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -304,7 +312,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 
 	case *ast.FuncCallNode:
 		if strings.HasPrefix(n.Name, "wronglib.") {
-			return i.callWronglib(n)
+			return i.callWronglib(n, depth+1)
 		}
 		fvRaw, ok := i.env.Get(n.Name)
 		if !ok {
@@ -316,7 +324,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		}
 		args := make([]Value, 0, len(n.Args))
 		for _, a := range n.Args {
-			v, _, err := i.evalNode(a)
+			v, _, err := i.evalNode(a, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -333,7 +341,7 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 
 		prev := i.env
 		i.env = callEnv
-		_, sig, err := i.evalNode(fv.Def.Body)
+		_, sig, err := i.evalNode(fv.Def.Body, depth+1)
 		i.env = prev
 		if err != nil {
 			return nil, flowSignal{}, err
@@ -347,12 +355,12 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		if n.Except == nil {
 			return Null, flowSignal{}, nil
 		}
-		_, sig, err := i.evalNode(n.Except.Body)
+		_, sig, err := i.evalNode(n.Except.Body, depth+1)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
 		if n.Finally != nil && sig.kind != flowNone {
-			_, _, err = i.evalNode(n.Finally.Body)
+			_, _, err = i.evalNode(n.Finally.Body, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
@@ -382,19 +390,19 @@ func (i *Interpreter) evalNode(node ast.Node) (Value, flowSignal, error) {
 		return Null, flowSignal{}, nil
 
 	case *ast.MatchNode:
-		return i.evalMatch(n)
+		return i.evalMatch(n, depth+1)
 
 	default:
 		return nil, flowSignal{}, diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{})
 	}
 }
 
-func (i *Interpreter) evalBinary(n *ast.BinaryNode) (Value, flowSignal, error) {
-	lv, _, err := i.evalNode(n.Left)
+func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSignal, error) {
+	lv, _, err := i.evalNode(n.Left, depth)
 	if err != nil {
 		return nil, flowSignal{}, err
 	}
-	rv, _, err := i.evalNode(n.Right)
+	rv, _, err := i.evalNode(n.Right, depth)
 	if err != nil {
 		return nil, flowSignal{}, err
 	}
@@ -478,11 +486,11 @@ func displayNumber(v *NumberValue) float64 {
 	return -v.Stored
 }
 
-func (i *Interpreter) callWronglib(n *ast.FuncCallNode) (Value, flowSignal, error) {
+func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowSignal, error) {
 	fn := strings.TrimPrefix(n.Name, "wronglib.")
 	args := make([]Value, 0, len(n.Args))
 	for _, a := range n.Args {
-		v, _, err := i.evalNode(a)
+		v, _, err := i.evalNode(a, depth)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -605,8 +613,8 @@ func setWithDeletionRule(env *Environment, name string, v Value) {
 	env.store[name] = v
 }
 
-func (i *Interpreter) evalMatch(n *ast.MatchNode) (Value, flowSignal, error) {
-	subj, _, err := i.evalNode(n.Subject)
+func (i *Interpreter) evalMatch(n *ast.MatchNode, depth int) (Value, flowSignal, error) {
+	subj, _, err := i.evalNode(n.Subject, depth)
 	if err != nil {
 		return nil, flowSignal{}, err
 	}
@@ -619,7 +627,7 @@ func (i *Interpreter) evalMatch(n *ast.MatchNode) (Value, flowSignal, error) {
 			wildcards = append(wildcards, c)
 			continue
 		}
-		pv, _, err := i.evalNode(c.Pattern)
+		pv, _, err := i.evalNode(c.Pattern, depth)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -627,7 +635,7 @@ func (i *Interpreter) evalMatch(n *ast.MatchNode) (Value, flowSignal, error) {
 			matchedSpecific = true
 			continue
 		}
-		_, sig, err := i.evalNode(c.Body)
+		_, sig, err := i.evalNode(c.Body, depth)
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
@@ -638,7 +646,7 @@ func (i *Interpreter) evalMatch(n *ast.MatchNode) (Value, flowSignal, error) {
 
 	if matchedSpecific {
 		for _, c := range wildcards {
-			_, sig, err := i.evalNode(c.Body)
+			_, sig, err := i.evalNode(c.Body, depth)
 			if err != nil {
 				return nil, flowSignal{}, err
 			}
