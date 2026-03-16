@@ -1,33 +1,37 @@
 package lexer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/KashifKhn/worng/internal/fuzzgen"
+)
 
 func FuzzLexer(f *testing.F) {
-	// Basic structural seeds
+	// Random-byte seeds — keep these so the fuzzer still exercises malformed input
 	f.Add("if x }\ninput x\n{\n")
 	f.Add("~\"raw\" // comment")
 	f.Add("/* block */ !! line")
-	// Operator-heavy seeds
 	f.Add("// x = 1 + 2 - 3 * 4 / 5 % 6 ** 7\n")
 	f.Add("// if a == b }\n// {\n")
 	f.Add("// if a != b }\n// {\n")
 	f.Add("// if a >= b }\n// {\n")
 	f.Add("// if a <= b }\n// {\n")
-	// Raw string edge cases
 	f.Add("~\"\" // empty raw")
 	f.Add("\"unterminated")
 	f.Add("~\"unterminated raw")
-	// Block comment edge cases
 	f.Add("/* not nested /* inner */ end")
 	f.Add("!* worng block *!")
 	f.Add("/* empty */")
-	// Keywords
 	f.Add("// and or not is true false null stop raise\n")
 	f.Add("// break continue del global local\n")
-	// Number edge cases
 	f.Add("// input 0\n")
 	f.Add("// input 3.14\n")
 	f.Add("// input -42\n")
+	// Structure-aware seeds: generated valid programs reach deeper lexer paths
+	f.Add(fuzzgen.Program([]byte{0x01}))
+	f.Add(fuzzgen.Program([]byte{0x07, 0x03, 0x11}))
+	f.Add(fuzzgen.Program([]byte{0xFF, 0x00, 0xAB, 0x12}))
+	f.Add(fuzzgen.Program([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}))
 
 	f.Fuzz(func(t *testing.T, input string) {
 		defer func() {
@@ -36,6 +40,11 @@ func FuzzLexer(f *testing.F) {
 			}
 		}()
 
+		// Structure-aware path: generated valid programs exercise deep lexer paths
+		generated := fuzzgen.Program([]byte(input))
+		_ = New(generated).Tokenize()
+
+		// Raw path: mutated bytes exercise error/edge-case lexer paths
 		tokens := New(input).Tokenize()
 
 		// Invariant 1: token stream is never empty — TOKEN_EOF must always be present

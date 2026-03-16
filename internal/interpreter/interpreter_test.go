@@ -7,6 +7,7 @@ import (
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
+	"github.com/KashifKhn/worng/internal/fuzzgen"
 	"github.com/KashifKhn/worng/internal/lexer"
 	"github.com/KashifKhn/worng/internal/parser"
 )
@@ -15,6 +16,21 @@ func FuzzInterpreter(f *testing.F) {
 	f.Add("// input ~\"hello\"\n")
 	f.Add("// x = 1\n// input x\n")
 	f.Add("// if false }\n// input ~\"if\"\n// { else }\n// input ~\"else\"\n// {\n")
+	// Structure-aware seeds: syntactically valid WORNG programs
+	for _, seed := range [][]byte{
+		{0x00},
+		{0x01},
+		{0x02},
+		{0x03},
+		{0x04},
+		{0x05},
+		{0xAA, 0x55, 0x10, 0x20},
+		{0xFF, 0xFE, 0xFD, 0xFC},
+		{0x10, 0x20, 0x30, 0x40, 0x50},
+		{0xDE, 0xAD, 0xBE, 0xEF},
+	} {
+		f.Add(fuzzgen.Program(seed))
+	}
 
 	f.Fuzz(func(t *testing.T, source string) {
 		defer func() {
@@ -23,34 +39,39 @@ func FuzzInterpreter(f *testing.F) {
 			}
 		}()
 
-		prepared := strings.Join(lexer.Preprocess(source), "\n")
-		if prepared != "" {
-			prepared += "\n"
-		}
-
-		tokens := lexer.New(prepared).Tokenize()
-		p := parser.New(tokens)
-		program, errs := p.Parse()
-		if len(errs) > 0 {
-			for idx, err := range errs {
-				if err == nil {
-					t.Fatalf("parse errs[%d] is nil", idx)
-				}
+		// Run both the raw mutated input and a structure-aware generated program.
+		// The raw path exercises the lexer/parser resilience; the generated path
+		// reaches deep interpreter logic that random bytes never hit.
+		for _, src := range []string{source, fuzzgen.Program([]byte(source))} {
+			prepared := strings.Join(lexer.Preprocess(src), "\n")
+			if prepared != "" {
+				prepared += "\n"
 			}
-			return
-		}
-		if program == nil {
-			t.Fatal("parser returned nil program")
-		}
 
-		var out bytes.Buffer
-		i := New(&out, strings.NewReader(""))
-		err := i.Run(program)
-		if err == nil {
-			return
-		}
-		if _, ok := err.(*diagnostics.WorngError); !ok {
-			t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+			tokens := lexer.New(prepared).Tokenize()
+			p := parser.New(tokens)
+			program, errs := p.Parse()
+			if len(errs) > 0 {
+				for idx, err := range errs {
+					if err == nil {
+						t.Fatalf("parse errs[%d] is nil", idx)
+					}
+				}
+				continue
+			}
+			if program == nil {
+				t.Fatal("parser returned nil program")
+			}
+
+			var out bytes.Buffer
+			i := New(&out, strings.NewReader(""))
+			err := i.Run(program)
+			if err == nil {
+				continue
+			}
+			if _, ok := err.(*diagnostics.WorngError); !ok {
+				t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+			}
 		}
 	})
 }

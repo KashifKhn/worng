@@ -6,6 +6,7 @@ import (
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
+	"github.com/KashifKhn/worng/internal/fuzzgen"
 	"github.com/KashifKhn/worng/internal/lexer"
 )
 
@@ -1201,9 +1202,29 @@ func FuzzParser(f *testing.F) {
 	f.Add("// input null\n")
 	f.Add("// raise err ~\"msg\"\n")
 	f.Add("// stop\n")
+	// Structure-aware seeds: valid WORNG programs from the generator
+	for _, seed := range [][]byte{
+		{0x00},
+		{0x01},
+		{0x02},
+		{0x03},
+		{0x04},
+		{0x05},
+		{0xAA, 0x55, 0x10, 0x20},
+		{0xFF, 0xFE, 0xFD, 0xFC},
+		{0x10, 0x20, 0x30, 0x40, 0x50},
+		{0xDE, 0xAD, 0xBE, 0xEF},
+	} {
+		f.Add(fuzzgen.Program(seed))
+	}
 
 	f.Fuzz(func(t *testing.T, input string) {
+		// Run the raw mutated input through the parser
 		fuzzParserInput(t, input)
+		// Also run a structure-aware generated program through the parser —
+		// this reaches deeper parser logic that random bytes never hit.
+		generated := fuzzgen.Program([]byte(input))
+		fuzzParserInput(t, generated)
 	})
 }
 
