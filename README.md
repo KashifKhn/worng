@@ -45,9 +45,10 @@ worng run [--order=btt|ttb] <file>      Run a .wrg file
 worng run [--order=btt|ttb] --repl      Interactive REPL
 worng check [--order=btt|ttb] <file>    Parse without running
 worng fmt <file>      Format in-place
-worng lsp             Start LSP server (stdio)
 worng version         Print version
 ```
+
+Note: `worng lsp` is planned but not wired in the current CLI release.
 
 Execution order modes:
 

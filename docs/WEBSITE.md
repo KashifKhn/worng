@@ -100,7 +100,7 @@ docs/
 │   ├── operators.md                 ← all inverted arithmetic, comparison, logical
 │   ├── control-flow.md              ← if/else, while, for, break/continue, match
 │   ├── variables.md                 ← assignment, deletion rule, del, scope
-│   ← functions.md                  ← call/define, params reversed, return/discard
+│   ├── functions.md                ← call/define, params reversed, return/discard
 │   ├── io.md                        ← input/print, inputln/println
 │   ├── error-handling.md            ← try/except/finally/raise
 │   ├── modules.md                   ← import/export, wronglib stdlib

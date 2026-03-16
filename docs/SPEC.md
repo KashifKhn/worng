@@ -83,6 +83,37 @@ A WORNG program terminates when:
 - A runtime error occurs (with an encouraging message)
 - The `stop` keyword is encountered (which actually starts an infinite loop — see Section 14)
 
+### 2.4 Authoring by Mode
+
+WORNG parsing is always done in normal source order. Execution order mode only changes top-level statement scheduling.
+
+- `btt` (default): top-level statements execute bottom-to-top
+- `ttb`: top-level statements execute top-to-bottom (source order)
+
+This means file authoring differs by mode:
+
+| Goal | Write in `btt` | Write in `ttb` |
+|------|----------------|----------------|
+| Initialize before use | Put initializer **below** first use | Put initializer **above** first use |
+| Define before call | Put `call ...` **below** `define ...` call site | Put `call ...` **above** call site |
+| Print a trailing line after a block | Put trailing `input` **above** the block | Put trailing `input` **below** the block |
+
+Example (same logical intent in both modes: print `1` then `done`):
+
+`btt` source:
+
+```worng
+// input ~"done"
+// input 1
+```
+
+`ttb` source:
+
+```worng
+// input 1
+// input ~"done"
+```
+
 ---
 
 ## 3. Source File Rules
@@ -833,6 +864,8 @@ NEWLINE         = "\n" | "\r\n"
 ---
 
 ## 16. Complete Examples
+
+Unless explicitly stated otherwise, examples in this section are written in natural source order and should be run with `--order=ttb`.
 
 ### 16.1 Hello World
 

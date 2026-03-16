@@ -1012,8 +1012,9 @@ func runWorng(this js.Value, args []js.Value) interface{} {
  worng check [--order=btt|ttb] <file>  Parse and type-check without running
  worng fmt <file>           Format a .wrg file in-place
  worng version              Print version
- worng lsp                  Start LSP server (stdio) — same as worng-lsp binary
 ```
+
+`worng lsp` is planned but not wired in the current CLI command switch yet.
 
 ### REPL
 
@@ -1021,7 +1022,7 @@ The REPL accepts WORNG's comment-based syntax. Each line must start with `//` or
 
 ```
 $ worng run [--order=btt|ttb] --repl
-WORNG v1.0.0 — Type // followed by WORNG code. Uncommented lines are ignored.
+WORNG v0.1.0 — Type // or !! followed by WORNG code.
 >>> // x = 5
 >>> // input x
 5
