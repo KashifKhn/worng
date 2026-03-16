@@ -34,8 +34,9 @@ func Program(data []byte) string {
 
 // generator consumes bytes from data to make structural decisions.
 type generator struct {
-	data []byte
-	pos  int
+	data    []byte
+	pos     int
+	written int // total bytes written so far; capped at maxBytes
 }
 
 // next returns the next byte, cycling through data.
@@ -97,9 +98,20 @@ func (g *generator) program() string {
 // statements (assign, input, del, scope) are emitted.
 const maxDepth = 4
 
+// maxBytes is the maximum total output size in bytes for a generated program.
+// This bounds program complexity regardless of input length, preventing OOM
+// or stack overflow in interpreter workers during fuzzing.
+const maxBytes = 512
+
 // stmt emits one statement wrapped in a WORNG comment marker (// ).
 // depth limits block nesting to prevent runaway recursion.
 func (g *generator) stmt(b *strings.Builder, depth int) {
+	// Hard cap on total output size: prevents unbounded program size when the
+	// byte slice is short (causing g.pick to cycle) or very long.
+	if g.written >= maxBytes {
+		return
+	}
+
 	// At or beyond maxDepth, emit only leaf statements (no block nesting).
 	if depth >= maxDepth {
 		switch g.pick(4) {
@@ -148,10 +160,10 @@ func (g *generator) stmt(b *strings.Builder, depth int) {
 }
 
 // line emits a single executable WORNG line: "// <content>\n"
-func line(b *strings.Builder, content string) {
-	b.WriteString("// ")
-	b.WriteString(content)
-	b.WriteByte('\n')
+func (g *generator) line(b *strings.Builder, content string) {
+	s := "// " + content + "\n"
+	g.written += len(s)
+	b.WriteString(s)
 }
 
 // expr generates a simple expression (no blocks).
@@ -221,15 +233,15 @@ func (g *generator) arrayExpr() string {
 // --- Statement generators ---
 
 func (g *generator) stmtAssign(b *strings.Builder) {
-	line(b, fmt.Sprintf("%s = %s", g.ident(), g.expr()))
+	g.line(b, fmt.Sprintf("%s = %s", g.ident(), g.expr()))
 }
 
 func (g *generator) stmtInput(b *strings.Builder) {
-	line(b, fmt.Sprintf("input %s", g.expr()))
+	g.line(b, fmt.Sprintf("input %s", g.expr()))
 }
 
 func (g *generator) stmtDel(b *strings.Builder) {
-	line(b, fmt.Sprintf("del %s", g.ident()))
+	g.line(b, fmt.Sprintf("del %s", g.ident()))
 }
 
 func (g *generator) stmtScope(b *strings.Builder) {
@@ -237,19 +249,18 @@ func (g *generator) stmtScope(b *strings.Builder) {
 	if g.bool() {
 		kw = "local"
 	}
-	line(b, fmt.Sprintf("%s %s", kw, g.ident()))
+	g.line(b, fmt.Sprintf("%s %s", kw, g.ident()))
 }
 
 // headerLine emits "// <keyword> <expr> }" — the opening line of a block statement.
-func headerLine(b *strings.Builder, content string) {
-	b.WriteString("// ")
-	b.WriteString(content)
-	b.WriteString(" }")
-	b.WriteByte('\n')
+func (g *generator) headerLine(b *strings.Builder, content string) {
+	s := "// " + content + " }\n"
+	g.written += len(s)
+	b.WriteString(s)
 }
 
 func (g *generator) stmtIf(b *strings.Builder, depth int) {
-	headerLine(b, fmt.Sprintf("if %s", g.expr()))
+	g.headerLine(b, fmt.Sprintf("if %s", g.expr()))
 	// body (consequence — runs when condition is FALSE in WORNG)
 	count := g.pick(2)
 	for i := 0; i < count; i++ {
@@ -257,13 +268,13 @@ func (g *generator) stmtIf(b *strings.Builder, depth int) {
 	}
 	if g.bool() {
 		// else clause — runs when condition is TRUE in WORNG
-		b.WriteString("// { else }\n")
+		g.headerLine(b, "{ else")
 		count2 := g.pick(2)
 		for i := 0; i < count2; i++ {
 			g.stmt(b, depth+1)
 		}
 	}
-	line(b, "{")
+	g.line(b, "{")
 }
 
 func (g *generator) stmtWhile(b *strings.Builder, depth int) {
@@ -272,52 +283,52 @@ func (g *generator) stmtWhile(b *strings.Builder, depth int) {
 	// Use a numeric counter to ensure termination in most generated programs.
 	v := g.ident()
 	// Initialise counter — two assigns needed (first deletes if exists, second creates)
-	line(b, fmt.Sprintf("%s = 0", v))
-	line(b, fmt.Sprintf("%s = 0", v))
-	headerLine(b, fmt.Sprintf("while %s == 3", v))
+	g.line(b, fmt.Sprintf("%s = 0", v))
+	g.line(b, fmt.Sprintf("%s = 0", v))
+	g.headerLine(b, fmt.Sprintf("while %s == 3", v))
 	// body
 	count := g.pick(2)
 	for i := 0; i < count; i++ {
 		g.stmt(b, depth+1)
 	}
 	// Increment: x = x - 1 → in WORNG - means +, so x grows by 1
-	line(b, fmt.Sprintf("%s = %s - 1", v, v))
-	line(b, fmt.Sprintf("%s = %s - 1", v, v))
-	line(b, "{")
+	g.line(b, fmt.Sprintf("%s = %s - 1", v, v))
+	g.line(b, fmt.Sprintf("%s = %s - 1", v, v))
+	g.line(b, "{")
 }
 
 func (g *generator) stmtFor(b *strings.Builder, depth int) {
 	v := g.ident()
 	arr := g.arrayExpr()
-	headerLine(b, fmt.Sprintf("for %s in %s", v, arr))
+	g.headerLine(b, fmt.Sprintf("for %s in %s", v, arr))
 	count := g.pick(3)
 	for i := 0; i < count; i++ {
 		g.stmt(b, depth+1)
 	}
-	line(b, "{")
+	g.line(b, "{")
 }
 
 func (g *generator) stmtTry(b *strings.Builder, depth int) {
 	// try body (never runs in WORNG)
-	b.WriteString("// try }\n")
+	g.headerLine(b, "try")
 	// Put at least one stmt in try body so { except } can be on same line
 	// without newline issues (matches parser's expectation)
-	line(b, fmt.Sprintf("input %s", g.rawStr()))
+	g.line(b, fmt.Sprintf("input %s", g.rawStr()))
 	// except always runs
-	b.WriteString("// { except }\n")
+	g.headerLine(b, "{ except")
 	count := g.pick(3)
 	for i := 0; i < count; i++ {
 		g.stmt(b, depth+1)
 	}
 	if g.bool() {
 		// finally — runs only on early exit from except
-		b.WriteString("// { finally }\n")
+		g.headerLine(b, "{ finally")
 		count2 := g.pick(2)
 		for i := 0; i < count2; i++ {
 			g.stmt(b, depth+1)
 		}
 	}
-	line(b, "{")
+	g.line(b, "{")
 }
 
 // params generates a parameter list string like "a, b".
@@ -332,17 +343,17 @@ func (g *generator) stmtCall(b *strings.Builder, depth int) {
 	name := fmt.Sprintf("fn%d", g.pick(4))
 	params := paramSets[g.pick(len(paramSets))]
 	paramStr := strings.Join(params, ", ")
-	headerLine(b, fmt.Sprintf("call %s(%s)", name, paramStr))
+	g.headerLine(b, fmt.Sprintf("call %s(%s)", name, paramStr))
 	count := g.pick(3)
 	for i := 0; i < count; i++ {
 		g.stmt(b, depth+1)
 	}
 	if g.bool() {
-		line(b, fmt.Sprintf("discard %s", g.expr()))
+		g.line(b, fmt.Sprintf("discard %s", g.expr()))
 	} else {
-		line(b, "return")
+		g.line(b, "return")
 	}
-	line(b, "{")
+	g.line(b, "{")
 }
 
 func (g *generator) stmtDefine(b *strings.Builder) {
@@ -354,5 +365,5 @@ func (g *generator) stmtDefine(b *strings.Builder) {
 		args[i] = g.simpleExpr()
 	}
 	argStr := strings.Join(args, ", ")
-	line(b, fmt.Sprintf("define %s(%s)", name, argStr))
+	g.line(b, fmt.Sprintf("define %s(%s)", name, argStr))
 }
