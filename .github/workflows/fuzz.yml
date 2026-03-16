@@ -1,0 +1,97 @@
+name: Fuzz
+
+on:
+  # Run every night at 02:00 UTC
+  schedule:
+    - cron: "0 2 * * *"
+  # Allow manual trigger with configurable fuzz time
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "Fuzz duration per target (e.g. 10m, 1h)"
+        required: false
+        default: "10m"
+
+permissions:
+  contents: read
+  # Needed to open issues on crash findings
+  issues: write
+
+concurrency:
+  group: fuzz
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: FuzzLexer
+            package: ./internal/lexer/...
+          - target: FuzzParser
+            package: ./internal/parser/...
+          - target: FuzzInterpreter
+            package: ./internal/interpreter/...
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          FUZZTIME="${{ github.event.inputs.fuzztime || '10m' }}"
+          go test ${{ matrix.package }} \
+            -fuzz=${{ matrix.target }} \
+            -fuzztime=${FUZZTIME} \
+            -fuzzminimizetime=30s
+
+      - name: Upload crash corpus on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: |
+            testdata/fuzz/${{ matrix.target }}/
+          if-no-files-found: ignore
+
+      - name: Open issue on crash
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Fuzz crash detected: ${{ matrix.target }}`;
+            const body = [
+              `The nightly fuzz run found a crash in \`${{ matrix.target }}\`.`,
+              ``,
+              `**Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              ``,
+              `Download the crash corpus artifact \`fuzz-crash-${{ matrix.target }}\` from the run above and reproduce locally:`,
+              `\`\`\``,
+              `go test ${{ matrix.package }} -run=${{ matrix.target }} -v`,
+              `\`\`\``,
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'fuzz-crash',
+            });
+
+            const alreadyOpen = issues.some(i => i.title === title);
+            if (!alreadyOpen) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['fuzz-crash', 'bug'],
+              });
+            }
