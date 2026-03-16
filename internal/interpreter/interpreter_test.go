@@ -10,7 +10,7 @@ import (
 	"github.com/KashifKhn/worng/internal/lexer"
 )
 
-func TestRunProgramExecutesBottomToTop(t *testing.T) {
+func TestRunProgramDefaultExecutesBottomToTop(t *testing.T) {
 	t.Parallel()
 
 	program := &ast.ProgramNode{Statements: []ast.Statement{
@@ -26,6 +26,25 @@ func TestRunProgramExecutesBottomToTop(t *testing.T) {
 
 	if out.String() != "first\nsecond\n" {
 		t.Fatalf("output = %q, want %q", out.String(), "first\nsecond\n")
+	}
+}
+
+func TestRunProgramTopToBottomOrder(t *testing.T) {
+	t.Parallel()
+
+	program := &ast.ProgramNode{Statements: []ast.Statement{
+		&ast.InputNode{Value: &ast.StringLiteral{Value: "second", Raw: true}},
+		&ast.InputNode{Value: &ast.StringLiteral{Value: "first", Raw: true}},
+	}}
+
+	var out bytes.Buffer
+	i := NewWithOrder(&out, strings.NewReader(""), OrderTopToBottom)
+	if err := i.Run(program); err != nil {
+		t.Fatalf("run error: %v", err)
+	}
+
+	if out.String() != "second\nfirst\n" {
+		t.Fatalf("output = %q, want %q", out.String(), "second\nfirst\n")
 	}
 }
 

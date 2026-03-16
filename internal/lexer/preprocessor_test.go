@@ -11,7 +11,7 @@ func TestPreprocessSingleLineCommentMarkers(t *testing.T) {
 	source := "keep me ignored\n// x = 1\n!! input x\nignored too\n"
 
 	got := Preprocess(source)
-	want := []string{"input x", "x = 1"}
+	want := []string{"x = 1", "input x"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -22,7 +22,7 @@ func TestPreprocessLeadingWhitespaceBeforeCommentMarkers(t *testing.T) {
 	source := "  // x = 1\n\t!! input x\n\t  //\n"
 
 	got := Preprocess(source)
-	want := []string{"", "input x", "x = 1"}
+	want := []string{"x = 1", "input x", ""}
 
 	assertLinesEqual(t, got, want)
 }
@@ -44,7 +44,7 @@ func TestPreprocessBlockCommentSlashStar(t *testing.T) {
 	source := "ignored\n/*\nx = 10\ny = 20\n*/\nignored\n"
 
 	got := Preprocess(source)
-	want := []string{"y = 20", "x = 10"}
+	want := []string{"x = 10", "y = 20"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -55,7 +55,7 @@ func TestPreprocessBlockCommentBangStar(t *testing.T) {
 	source := "ignored\n!*\na = 1\nb = 2\n*!\nignored\n"
 
 	got := Preprocess(source)
-	want := []string{"b = 2", "a = 1"}
+	want := []string{"a = 1", "b = 2"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -66,7 +66,7 @@ func TestPreprocessMixedCommentStyles(t *testing.T) {
 	source := "// top\n!! second\n/*\nthird\n*/\n!*\nfourth\n*!\n"
 
 	got := Preprocess(source)
-	want := []string{"fourth", "third", "second", "top"}
+	want := []string{"top", "second", "third", "fourth"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -88,7 +88,7 @@ func TestPreprocessBlockCommentMultilineKeepsEachLine(t *testing.T) {
 	source := "/*\nline one\n\nline three\n*/\n"
 
 	got := Preprocess(source)
-	want := []string{"line three", "", "line one"}
+	want := []string{"line one", "", "line three"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -100,7 +100,7 @@ func TestPreprocessBlockCommentsDoNotNest(t *testing.T) {
 
 	got := Preprocess(source)
 	// first */ closes the block; outside is not executable
-	want := []string{"outer end", "/* this does not open nested", "outer start"}
+	want := []string{"outer start", "/* this does not open nested", "outer end"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -111,7 +111,7 @@ func TestPreprocessUnclosedBlockCommentConsumesUntilEOF(t *testing.T) {
 	source := "ignore\n/*\na\nb\n"
 
 	got := Preprocess(source)
-	want := []string{"b", "a"}
+	want := []string{"a", "b"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -151,7 +151,7 @@ func TestPreprocessBlockCommentWithLeadingWhitespaceMarker(t *testing.T) {
 	source := "   /* x = 1 */\n\t!* y = 2 *!\n"
 
 	got := Preprocess(source)
-	want := []string{"y = 2", "x = 1"}
+	want := []string{"x = 1", "y = 2"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -162,7 +162,7 @@ func TestPreprocessBlockCommentInnerLineTrimmed(t *testing.T) {
 	source := "/*\n   x = 1   \n\t  y = 2\t\n*/\n"
 
 	got := Preprocess(source)
-	want := []string{"y = 2", "x = 1"}
+	want := []string{"x = 1", "y = 2"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -184,7 +184,7 @@ func TestPreprocessCRLF(t *testing.T) {
 	source := "// a\r\n!! b\r\n/*\r\nc\r\n*/\r\n"
 
 	got := Preprocess(source)
-	want := []string{"c", "b", "a"}
+	want := []string{"a", "b", "c"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -206,7 +206,7 @@ func TestPreprocessSingleLineCommentContentTrimmed(t *testing.T) {
 	source := "//   x = 1   \n!!\t  input x\t\n"
 
 	got := Preprocess(source)
-	want := []string{"input x", "x = 1"}
+	want := []string{"x = 1", "input x"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -260,7 +260,7 @@ func TestPreprocessBlockCommentOpeningLineWithTrailingContent(t *testing.T) {
 	source := "/* opening text\nx = 1\n*/\n"
 
 	got := Preprocess(source)
-	want := []string{"x = 1", "opening text"}
+	want := []string{"opening text", "x = 1"}
 
 	assertLinesEqual(t, got, want)
 }
@@ -280,7 +280,7 @@ func TestPreprocessBlockCloseMarkersDoNotCrossMatch(t *testing.T) {
 				"*!\n" +
 				"b\n" +
 				"*/\n",
-			want: []string{"b", "*!", "a"},
+			want: []string{"a", "*!", "b"},
 		},
 		{
 			name: "bang-open-does-not-close-with-slashstar",
@@ -289,7 +289,7 @@ func TestPreprocessBlockCloseMarkersDoNotCrossMatch(t *testing.T) {
 				"*/\n" +
 				"b\n" +
 				"*!\n",
-			want: []string{"b", "*/", "a"},
+			want: []string{"a", "*/", "b"},
 		},
 	}
 
@@ -319,7 +319,7 @@ func TestPreprocessWhitespaceOnlyLineBetweenExecCommentsIgnored(t *testing.T) {
 	source := "// x = 1\n   \n// y = 2\n"
 
 	got := Preprocess(source)
-	want := []string{"y = 2", "x = 1"}
+	want := []string{"x = 1", "y = 2"}
 
 	assertLinesEqual(t, got, want)
 }
