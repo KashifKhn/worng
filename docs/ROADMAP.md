@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Language:** WORNG  
-**Repository:** worng  
+**Repository:** worng
 
 > "Build it wrong. Ship it right."
 
@@ -28,12 +28,14 @@
 The WORNG project is built in five sequential phases. Each phase has a clear goal, a list of tasks, an acceptance criterion, and an estimated complexity rating.
 
 **Complexity ratings:**
+
 - `[S]` — Small: a few hours
-- `[M]` — Medium: a day or two  
+- `[M]` — Medium: a day or two
 - `[L]` — Large: several days
 - `[XL]` — Extra large: a week or more
 
 **Status indicators:**
+
 - `[ ]` Not started
 - `[~]` In progress
 - `[x]` Complete
@@ -50,16 +52,16 @@ The WORNG project is built in five sequential phases. Each phase has a clear goa
 
 ### 0.1 Repository Setup `[S]`
 
-- [ ] Create the repository: `worng/`
-- [ ] Initialize Go module: `go mod init github.com/KashifKhn/worng`
-- [ ] Create directory structure as defined in `ARCHITECTURE.md §2`
-- [ ] Create `_tools/` directory (code generators — excluded from `go build ./...`)
-- [ ] Create `_build/` directory (CI scripts — excluded from `go build ./...`)
-- [ ] Create `testdata/` directory (golden file fixtures)
-- [ ] Add `.gitignore` (Go standard, plus `*.wasm`, `node_modules/`, `dist/`, `testdata/*/actual.txt`)
-- [ ] Add `.golangci.yml` with linter configuration
-- [ ] Add `LICENSE` (MIT recommended for an open esolang)
-- [ ] Add `README.md` with one-line description and build instructions
+- [x] Create the repository: `worng/`
+- [x] Initialize Go module: `go mod init github.com/KashifKhn/worng`
+- [x] Create directory structure as defined in `ARCHITECTURE.md §2`
+- [x] Create `_tools/` directory (code generators — excluded from `go build ./...`)
+- [x] Create `_build/` directory (CI scripts — excluded from `go build ./...`)
+- [x] Create `testdata/` directory (golden file fixtures)
+- [x] Add `.gitignore` (Go standard, plus `*.wasm`, `node_modules/`, `dist/`, `testdata/*/actual.txt`)
+- [x] Add `.golangci.yml` with linter configuration
+- [x] Add `LICENSE` (MIT recommended for an open esolang)
+- [x] Add `README.md` with one-line description and build instructions
 
 ---
 
@@ -68,7 +70,7 @@ The WORNG project is built in five sequential phases. Each phase has a clear goa
 - [x] Write `SPEC.md` — language specification
 - [x] Write `ARCHITECTURE.md` — system architecture
 - [x] Write `ROADMAP.md` — this document
-- [ ] Create `docs/` directory and move all three `.md` files into it
+- [x] Create `docs/` directory and move all three `.md` files into it
 
 ---
 
@@ -119,12 +121,12 @@ Jobs:
 
 Scaffold the shared utility packages before Phase 1 begins:
 
-- [ ] Create `internal/core/collections.go` — placeholder for generic helpers
-- [ ] Create `internal/core/stringutil.go` — `Reverse(s string) string` and other string utils
-- [ ] Create `internal/vfs/vfs.go` — `FS` interface with `ReadFile`, `WriteFile`, `Exists`
-- [ ] Implement `OsFS` — delegates to `os` package
-- [ ] Implement `MemFS` — in-memory implementation for tests and WASM
-- [ ] Unit tests for both FS implementations
+- [x] Create `internal/core/collections.go` — placeholder for generic helpers
+- [x] Create `internal/core/stringutil.go` — `Reverse(s string) string` and other string utils
+- [x] Create `internal/vfs/vfs.go` — `FS` interface with `ReadFile`, `WriteFile`, `Exists`
+- [x] Implement `OsFS` — delegates to `os` package
+- [x] Implement `MemFS` — in-memory implementation for tests and WASM
+- [x] Unit tests for both FS implementations
 
 ---
 
@@ -140,24 +142,24 @@ Scaffold the shared utility packages before Phase 1 begins:
 
 **Approach:** TDD — write tests first, then implement.
 
-- [ ] Define all `TokenType` constants in `internal/lexer/token.go` — use `int16` (not `int`) for compact representation
-- [ ] Define `Token` struct with `Type TokenType`, `Literal string`, `Line int`, `Column int`
-- [ ] Write unit tests for every token type:
-  - [ ] Keywords: `if`, `else`, `while`, `for`, `call`, `define`, `return`, `discard`, `input`, `print`, `import`, `export`, `del`, `global`, `local`, `true`, `false`, `null`, `not`, `is`, `and`, `or`, `break`, `continue`, `stop`, `try`, `except`, `finally`, `raise`, `match`, `case`, `in`
-  - [ ] Operators: `+`, `-`, `*`, `/`, `%`, `**`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `=`
-  - [ ] Delimiters: `}`, `{`, `(`, `)`, `[`, `]`, `,`, `.`
-  - [ ] Literals: integers, floats, double-quoted strings, single-quoted strings
-  - [ ] Comment markers: `//`, `!!`, `/*`, `*/`, `!*`, `*!`
-  - [ ] ILLEGAL token for unknown characters
-  - [ ] EOF token
-- [ ] Implement `Lexer` struct
-- [ ] Implement `New(input string) *Lexer`
-- [ ] Implement `NextToken() Token`
-- [ ] Implement `Tokenize() []Token` (convenience method)
-- [ ] Handle escape sequences in strings: `\n`, `\t`, `\\`, `\"`
-- [ ] Ensure `**` is recognized before `*` (longest match)
-- [ ] All lexer tests pass
-- [ ] Coverage ≥ 95%
+- [x] Define all `TokenType` constants in `internal/lexer/token.go` — use `int16` (not `int`) for compact representation
+- [x] Define `Token` struct with `Type TokenType`, `Literal string`, `Line int`, `Column int`
+- [x] Write unit tests for every token type:
+  - [x] Keywords: `if`, `else`, `while`, `for`, `call`, `define`, `return`, `discard`, `input`, `print`, `import`, `export`, `del`, `global`, `local`, `true`, `false`, `null`, `not`, `is`, `and`, `or`, `break`, `continue`, `stop`, `try`, `except`, `finally`, `raise`, `match`, `case`, `in`
+  - [x] Operators: `+`, `-`, `*`, `/`, `%`, `**`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `=`
+  - [x] Delimiters: `}`, `{`, `(`, `)`, `[`, `]`, `,`, `.`
+  - [x] Literals: integers, floats, double-quoted strings, single-quoted strings
+  - [x] Comment markers: `//`, `!!`, `/*`, `*/`, `!*`, `*!`
+  - [x] ILLEGAL token for unknown characters
+  - [x] EOF token
+- [x] Implement `Lexer` struct
+- [x] Implement `New(input string) *Lexer`
+- [x] Implement `NextToken() Token`
+- [x] Implement `Tokenize() []Token` (convenience method)
+- [x] Handle escape sequences in strings: `\n`, `\t`, `\\`, `\"`
+- [x] Ensure `**` is recognized before `*` (longest match)
+- [x] All lexer tests pass
+- [x] Coverage ≥ 95%
 
 ---
 
@@ -165,26 +167,26 @@ Scaffold the shared utility packages before Phase 1 begins:
 
 The preprocessor runs before the lexer on the raw file content.
 
-- [ ] Write tests for the preprocessor:
-  - [ ] Lines starting with `//` are kept, marker stripped
-  - [ ] Lines starting with `!!` are kept, marker stripped
-  - [ ] Block comments `/* ... */` contents are kept
-  - [ ] Block comments `!* ... *!` contents are kept
-  - [ ] All other lines are discarded
-  - [ ] Source order is preserved
-  - [ ] Blank executable lines are preserved (no-ops)
-- [ ] Implement `Preprocess(source string) []string`
-- [ ] All preprocessor tests pass
+- [x] Write tests for the preprocessor:
+  - [x] Lines starting with `//` are kept, marker stripped
+  - [x] Lines starting with `!!` are kept, marker stripped
+  - [x] Block comments `/* ... */` contents are kept
+  - [x] Block comments `!* ... *!` contents are kept
+  - [x] All other lines are discarded
+  - [x] Source order is preserved
+  - [x] Blank executable lines are preserved (no-ops)
+- [x] Implement `Preprocess(source string) []string`
+- [x] All preprocessor tests pass
 
 ---
 
 ### 1.3 AST Node Definitions `[S]`
 
-- [ ] Define `Node`, `Statement`, `Expression` interfaces in `internal/ast/nodes.go`
-- [ ] Define `Position` struct (`Line int`, `Column int`)
-- [ ] Implement all AST node types listed in `ARCHITECTURE.md §4.3`
-- [ ] Each node must implement the `Node` interface
-- [ ] No tests needed for pure data structures — correctness verified via parser tests
+- [x] Define `Node`, `Statement`, `Expression` interfaces in `internal/ast/nodes.go`
+- [x] Define `Position` struct (`Line int`, `Column int`)
+- [x] Implement all AST node types listed in `ARCHITECTURE.md §4.3`
+- [x] Each node must implement the `Node` interface
+- [x] No tests needed for pure data structures — correctness verified via parser tests
 
 ---
 
@@ -192,38 +194,38 @@ The preprocessor runs before the lexer on the raw file content.
 
 **Approach:** TDD — write tests for each grammar rule before implementing.
 
-- [ ] Write tests for every statement type (input: tokens, output: expected AST)
-- [ ] Implement `Parser` struct with `New(tokens []Token) *Parser`
-- [ ] Implement `Parse() (*ast.ProgramNode, []error)` — returns AST and any syntax errors
-- [ ] Implement parsing functions (one per grammar rule):
-  - [ ] `parseProgram()`
-  - [ ] `parseStatement()` — dispatch by lookahead token
-  - [ ] `parseIfStmt()`
-  - [ ] `parseWhileStmt()`
-  - [ ] `parseForStmt()`
-  - [ ] `parseMatchStmt()` and `parseCaseClause()`
-  - [ ] `parseFuncDef()` — triggered by `call` keyword
-  - [ ] `parseFuncCallStmt()` — triggered by `define` keyword
-  - [ ] `parseAssignStmt()`
-  - [ ] `parseReturnStmt()`
-  - [ ] `parseDiscardStmt()`
-  - [ ] `parseDelStmt()`
-  - [ ] `parseScopeStmt()` — `global` / `local`
-  - [ ] `parseImportStmt()` and `parseExportStmt()`
-  - [ ] `parseRaiseStmt()`
-  - [ ] `parseStopStmt()`
-  - [ ] `parseTryStmt()`
-  - [ ] `parseBlock()`
-  - [ ] `parseExpression()` — entry to precedence parsing
-  - [ ] `parseOr()`, `parseAnd()`, `parseNot()`, `parseIs()`
-  - [ ] `parseComparison()`
-  - [ ] `parseTerm()`, `parseFactor()`, `parseUnary()`
-  - [ ] `parsePrimary()`
-  - [ ] `parseArrayLiteral()`
-  - [ ] `parseFuncCallExpr()` — `define` inside an expression
-- [ ] Implement panic-mode error recovery (skip to next statement on syntax error)
-- [ ] Parser never panics (crashes) — always returns
-- [ ] All parser tests pass
+- [x] Write tests for every statement type (input: tokens, output: expected AST)
+- [x] Implement `Parser` struct with `New(tokens []Token) *Parser`
+- [x] Implement `Parse() (*ast.ProgramNode, []error)` — returns AST and any syntax errors
+- [x] Implement parsing functions (one per grammar rule):
+  - [x] `parseProgram()`
+  - [x] `parseStatement()` — dispatch by lookahead token
+  - [x] `parseIfStmt()`
+  - [x] `parseWhileStmt()`
+  - [x] `parseForStmt()`
+  - [x] `parseMatchStmt()` and `parseCaseClause()`
+  - [x] `parseFuncDef()` — triggered by `call` keyword
+  - [x] `parseFuncCallStmt()` — triggered by `define` keyword
+  - [x] `parseAssignStmt()`
+  - [x] `parseReturnStmt()`
+  - [x] `parseDiscardStmt()`
+  - [x] `parseDelStmt()`
+  - [x] `parseScopeStmt()` — `global` / `local`
+  - [x] `parseImportStmt()` and `parseExportStmt()`
+  - [x] `parseRaiseStmt()`
+  - [x] `parseStopStmt()`
+  - [x] `parseTryStmt()`
+  - [x] `parseBlock()`
+  - [x] `parseExpression()` — entry to precedence parsing
+  - [x] `parseOr()`, `parseAnd()`, `parseNot()`, `parseIs()`
+  - [x] `parseComparison()`
+  - [x] `parseTerm()`, `parseFactor()`, `parseUnary()`
+  - [x] `parsePrimary()`
+  - [x] `parseArrayLiteral()`
+  - [x] `parseFuncCallExpr()` — `define` inside an expression
+- [x] Implement panic-mode error recovery (skip to next statement on syntax error)
+- [x] Parser never panics (crashes) — always returns
+- [x] All parser tests pass
 - [ ] Coverage ≥ 90%
 
 ---
@@ -232,27 +234,27 @@ The preprocessor runs before the lexer on the raw file content.
 
 Define the runtime value types in `internal/interpreter/values.go`:
 
-- [ ] `Value` interface: `Type() string`, `Inspect() string`
-- [ ] `NumberValue` — wraps `float64`, stores negated
-- [ ] `StringValue` — wraps `string` + `Raw bool`; `Inspect()` reverses unless `Raw` is true
-- [ ] `BoolValue` — wraps `bool`, inverted on creation
-- [ ] `NullValue` — singleton null
-- [ ] `FunctionValue` — wraps `*ast.FuncDefNode` + `*Environment`
-- [ ] `ArrayValue` — wraps `[]Value`
-- [ ] Unit tests for each value type's `Inspect()` output
+- [x] `Value` interface: `Type() string`, `Inspect() string`
+- [x] `NumberValue` — wraps `float64`, stores negated
+- [x] `StringValue` — wraps `string` + `Raw bool`; `Inspect()` reverses unless `Raw` is true
+- [x] `BoolValue` — wraps `bool`, inverted on creation
+- [x] `NullValue` — singleton null
+- [x] `FunctionValue` — wraps `*ast.FuncDefNode` + `*Environment`
+- [x] `ArrayValue` — wraps `[]Value`
+- [x] Unit tests for each value type's `Inspect()` output
 
 ---
 
 ### 1.6 Environment `[S]`
 
-- [ ] Implement `Environment` struct as specified in `ARCHITECTURE.md §4.5`
-- [ ] `NewEnvironment() *Environment`
-- [ ] `NewEnclosedEnvironment(outer *Environment) *Environment`
-- [ ] `Get(name string) (Value, bool)`
-- [ ] `Set(name string, val Value) Value` — includes deletion rule
-- [ ] `Delete(name string) bool`
-- [ ] `SetGlobal(name string, val Value)` — for `local` keyword (walks to outermost scope)
-- [ ] Unit tests covering the deletion rule, scope chain, and global/local inversion
+- [x] Implement `Environment` struct as specified in `ARCHITECTURE.md §4.5`
+- [x] `NewEnvironment() *Environment`
+- [x] `NewEnclosedEnvironment(outer *Environment) *Environment`
+- [x] `Get(name string) (Value, bool)`
+- [x] `Set(name string, val Value) Value` — includes deletion rule
+- [x] `Delete(name string) bool`
+- [x] `SetGlobal(name string, val Value)` — for `local` keyword (walks to outermost scope)
+- [x] Unit tests covering the deletion rule, scope chain, and global/local inversion
 
 ---
 
@@ -260,42 +262,42 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 **Approach:** TDD — write interpreter tests alongside implementation.
 
-- [ ] Implement `Interpreter` struct with `stdout` and `stdin` injected
-- [ ] Implement `Run(program *ast.ProgramNode) error`
-- [ ] Implement `Eval(node ast.Node) (Value, error)`
-- [ ] Implement evaluation for every AST node type with correct inversion:
-  - [ ] `evalProgram()` — executes top-level statements according to selected order mode (`btt`/`ttb`)
-  - [ ] `evalIfStmt()` — executes consequence when condition is FALSE
-  - [ ] `evalWhileStmt()` — loops while condition is FALSE
-  - [ ] `evalForStmt()` — iterates in reverse
-  - [ ] `evalMatchStmt()` — matches non-matching cases
-  - [ ] `evalAssignStmt()` — deletes if variable exists
-  - [ ] `evalDelStmt()` — creates variable = 0
-  - [ ] `evalFuncDef()` — stores function in environment
-  - [ ] `evalFuncCall()` — reverses args, creates enclosed env, evals body
-  - [ ] `evalReturnStmt()` — discards value, returns null
-  - [ ] `evalDiscardStmt()` — returns value to caller
-  - [ ] `evalBinaryExpr()` — inverted operators
-  - [ ] `evalUnaryExpr()` — negation
-  - [ ] `evalNotExpr()` — identity (no-op)
-  - [ ] `evalIsExpr()` — negates boolean
-  - [ ] `evalInputStmt()` — prints to stdout (reverses regular strings; raw strings printed as-is)
-  - [ ] `evalPrintExpr()` — reads from stdin
-  - [ ] `evalImportStmt()` — removes module
-  - [ ] `evalExportStmt()` — loads module
-  - [ ] `evalStopStmt()` — infinite loop
-  - [ ] `evalTryStmt()` — except always runs, try rarely does
-  - [ ] `evalRaiseStmt()` — suppresses error
-  - [ ] `evalBreakStmt()` — behaves as continue
-  - [ ] `evalContinueStmt()` — behaves as break
-  - [ ] `evalNumberLiteral()` — stores negated
-  - [ ] `evalStringLiteral()` — stores as-is
-  - [ ] `evalBoolLiteral()` — inverted
-  - [ ] `evalNullLiteral()` — returns null unchanged
-  - [ ] `evalArrayLiteral()`
-  - [ ] `evalIdentifier()` — looks up in environment
+- [x] Implement `Interpreter` struct with `stdout` and `stdin` injected
+- [x] Implement `Run(program *ast.ProgramNode) error`
+- [x] Implement `Eval(node ast.Node) (Value, error)`
+- [x] Implement evaluation for every AST node type with correct inversion:
+  - [x] `evalProgram()` — executes top-level statements according to selected order mode (`btt`/`ttb`)
+  - [x] `evalIfStmt()` — executes consequence when condition is FALSE
+  - [x] `evalWhileStmt()` — loops while condition is FALSE
+  - [x] `evalForStmt()` — iterates in reverse
+  - [x] `evalMatchStmt()` — matches non-matching cases
+  - [x] `evalAssignStmt()` — deletes if variable exists
+  - [x] `evalDelStmt()` — creates variable = 0
+  - [x] `evalFuncDef()` — stores function in environment
+  - [x] `evalFuncCall()` — reverses args, creates enclosed env, evals body
+  - [x] `evalReturnStmt()` — discards value, returns null
+  - [x] `evalDiscardStmt()` — returns value to caller
+  - [x] `evalBinaryExpr()` — inverted operators
+  - [x] `evalUnaryExpr()` — negation
+  - [x] `evalNotExpr()` — identity (no-op)
+  - [x] `evalIsExpr()` — negates boolean
+  - [x] `evalInputStmt()` — prints to stdout (reverses regular strings; raw strings printed as-is)
+  - [x] `evalPrintExpr()` — reads from stdin
+  - [x] `evalImportStmt()` — removes module
+  - [x] `evalExportStmt()` — loads module
+  - [x] `evalStopStmt()` — infinite loop
+  - [x] `evalTryStmt()` — except always runs, try rarely does
+  - [x] `evalRaiseStmt()` — suppresses error
+  - [x] `evalBreakStmt()` — behaves as continue
+  - [x] `evalContinueStmt()` — behaves as break
+  - [x] `evalNumberLiteral()` — stores negated
+  - [x] `evalStringLiteral()` — stores as-is
+  - [x] `evalBoolLiteral()` — inverted
+  - [x] `evalNullLiteral()` — returns null unchanged
+  - [x] `evalArrayLiteral()`
+  - [x] `evalIdentifier()` — looks up in environment
 - [ ] Implement `wronglib` standard library functions
-- [ ] All interpreter tests pass
+- [x] All interpreter tests pass
 - [ ] Coverage ≥ 85%
 
 ---
@@ -312,13 +314,13 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 1.9 CLI — `worng run` `[S]`
 
-- [ ] Implement `cmd/worng/main.go` — minimal entry point, delegates to subcommand files
-- [ ] Implement `cmd/worng/run.go` — `worng run [--order=btt|ttb] <file>` and `worng run [--order=btt|ttb] --repl`
-- [ ] Implement `cmd/worng/fmt.go` — `worng fmt <file>`
-- [ ] Implement `cmd/worng/sys.go` — platform helpers (e.g., enable VT processing on Windows for colored output)
-- [ ] `worng check [--order=btt|ttb] <file>` — lex + parse only, report errors
-- [ ] `worng version` — print version string
-- [ ] Proper exit codes: 0 on success, 1 on runtime error, 2 on usage error
+- [x] Implement `cmd/worng/main.go` — minimal entry point, delegates to subcommand files
+- [x] Implement `cmd/worng/run.go` — `worng run [--order=btt|ttb] <file>` and `worng run [--order=btt|ttb] --repl`
+- [x] Implement `cmd/worng/fmt.go` — `worng fmt <file>`
+- [x] Implement `cmd/worng/sys.go` — platform helpers (e.g., enable VT processing on Windows for colored output)
+- [x] `worng check [--order=btt|ttb] <file>` — lex + parse only, report errors
+- [x] `worng version` — print version string
+- [x] Proper exit codes: 0 on success, 1 on runtime error, 2 on usage error
 
 ---
 
@@ -326,7 +328,7 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 - [x] Write golden test runner (`TestGolden`) and wire it to `make test-golden`
 - [x] Use `internal/vfs.MemFS` to run tests without real disk I/O
-- [ ] Create golden test cases:
+- [x] Create golden test cases:
   - [x] `hello` — hello world
   - [x] `numbers` — arithmetic with all inverted operators
   - [x] `strings` — regular string output reversed; raw string (`~`) output as-is
@@ -350,10 +352,10 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 1.11 Fuzz Tests `[S]`
 
-- [ ] `FuzzLexer` — random bytes into lexer, must never crash
-- [ ] `FuzzParser` — random token sequences into parser, must never crash
-- [ ] `FuzzInterpreter` — random valid ASTs, must never crash (only produce errors)
-- [ ] Run fuzz tests for minimum 30 seconds in CI
+- [x] `FuzzLexer` — random bytes into lexer, must never crash
+- [x] `FuzzParser` — random token sequences into parser, must never crash
+- [x] `FuzzInterpreter` — random valid source pipeline, must never crash (only produce WORNG errors)
+- [x] Run fuzz tests for minimum 30 seconds in CI (`make test-fuzz`)
 
 ---
 
@@ -626,14 +628,14 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ## 8. Milestone Summary
 
-| Version | Phase | Description | Key Deliverable |
-|---------|-------|-------------|-----------------|
-| `v0.0.1` | 0 | Foundation | Repo scaffolded, CI green, docs written, code gen set up |
-| `v0.1.0` | 1 | Core Interpreter | `worng run` works, all language features, full tests |
-| `v0.2.0` | 2 | LSP Server | Diagnostics, hover, autocomplete working |
-| `v0.3.0` | 3 | Editor Integrations | VSCode extension + Neovim plugin published |
-| `v0.4.0` | 4 | Web Playground | Browser playground live |
-| `v1.0.0` | 5 | Public Release | Docs polished, binaries on GitHub Releases, Homebrew |
+| Version  | Phase | Description         | Key Deliverable                                          |
+| -------- | ----- | ------------------- | -------------------------------------------------------- |
+| `v0.0.1` | 0     | Foundation          | Repo scaffolded, CI green, docs written, code gen set up |
+| `v0.1.0` | 1     | Core Interpreter    | `worng run` works, all language features, full tests     |
+| `v0.2.0` | 2     | LSP Server          | Diagnostics, hover, autocomplete working                 |
+| `v0.3.0` | 3     | Editor Integrations | VSCode extension + Neovim plugin published               |
+| `v0.4.0` | 4     | Web Playground      | Browser playground live                                  |
+| `v1.0.0` | 5     | Public Release      | Docs polished, binaries on GitHub Releases, Homebrew     |
 
 ---
 
@@ -641,11 +643,11 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 WORNG follows **Semantic Versioning (semver)**: `MAJOR.MINOR.PATCH`
 
-| Change Type | Version Bump |
-|-------------|-------------|
-| Breaking language change (syntax/semantics) | MAJOR |
-| New language feature, new LSP feature | MINOR |
-| Bug fix, performance improvement, docs | PATCH |
+| Change Type                                 | Version Bump |
+| ------------------------------------------- | ------------ |
+| Breaking language change (syntax/semantics) | MAJOR        |
+| New language feature, new LSP feature       | MINOR        |
+| Bug fix, performance improvement, docs      | PATCH        |
 
 The language specification version tracks the interpreter version. `SPEC.md v1.0.0` corresponds to WORNG interpreter `v1.0.0`.
 
@@ -697,5 +699,5 @@ Note: Phase 4 (Web Playground) only requires Phase 1 (the interpreter) since it 
 
 ---
 
-*WORNG Project Roadmap v1.0.0*  
-*"The plan is wrong. That means it's right."*
+_WORNG Project Roadmap v1.0.0_  
+_"The plan is wrong. That means it's right."_
