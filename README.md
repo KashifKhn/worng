@@ -64,6 +64,7 @@ Execution order modes:
 - [Language Specification](docs/SPEC.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Release Guide](docs/RELEASE.md)
 
 ## License
 
