@@ -1,0 +1,8 @@
+// call fib(b, a, n) }
+// if n < 1 }
+// discard a
+// { else }
+// discard define fib(n + 1, b, a - b)
+// {
+// {
+// input define fib(8, 0, 1)

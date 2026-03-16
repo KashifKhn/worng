@@ -1,0 +1,12 @@
+// x = ~"root"
+// call scopeCheck() }
+//     local x
+//     x = ~"new-global"
+//     x = ~"updated-global"
+//     global y
+//     y = ~"local-y"
+//     input x
+//     input y
+// {
+// define scopeCheck()
+// input x

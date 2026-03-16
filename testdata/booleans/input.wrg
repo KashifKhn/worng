@@ -1,0 +1,7 @@
+// input true
+// input false
+// if false }
+// input ~"if-body"
+// { else }
+// input ~"else-body"
+// {

@@ -1,0 +1,6 @@
+// x = ~"raw"
+// y = "hello"
+// input x
+// input y
+// input ~"suffix"
+// input ~"helloworld" + ~"world"

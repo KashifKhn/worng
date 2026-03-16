@@ -1,0 +1,8 @@
+// call sum(a, b) }
+//     discard a - b
+// {
+// input define sum(3, 7)
+// call noValue() }
+//     return 123
+// {
+// input define noValue()
