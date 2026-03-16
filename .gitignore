@@ -1,5 +1,5 @@
 # Binaries
-worng
+/worng
 *.exe
 
 # WASM
