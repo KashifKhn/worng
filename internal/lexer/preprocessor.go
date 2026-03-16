@@ -8,8 +8,7 @@ const (
 	blockBangStar
 )
 
-// Preprocess extracts executable lines from raw WORNG source and returns them
-// in execution order (bottom to top).
+// Preprocess extracts executable lines from raw WORNG source in source order.
 func Preprocess(source string) []string {
 	normalized := strings.ReplaceAll(source, "\r\n", "\n")
 	lines := strings.Split(normalized, "\n")
@@ -84,7 +83,6 @@ func Preprocess(source string) []string {
 		}
 	}
 
-	reverseStrings(exec)
 	return exec
 }
 
@@ -94,12 +92,6 @@ func consumeBlockLine(line, closeMarker string) (string, bool) {
 		return line, false
 	}
 	return line[:idx], true
-}
-
-func reverseStrings(items []string) {
-	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
-		items[i], items[j] = items[j], items[i]
-	}
 }
 
 func trimLeftSpaceTab(s string) string {
