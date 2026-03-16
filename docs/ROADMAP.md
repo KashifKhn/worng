@@ -226,7 +226,7 @@ The preprocessor runs before the lexer on the raw file content.
 - [x] Implement panic-mode error recovery (skip to next statement on syntax error)
 - [x] Parser never panics (crashes) — always returns
 - [x] All parser tests pass
-- [ ] Coverage ≥ 90%
+- [x] Coverage ≥ 90%
 
 ---
 
@@ -296,9 +296,9 @@ Define the runtime value types in `internal/interpreter/values.go`:
   - [x] `evalNullLiteral()` — returns null unchanged
   - [x] `evalArrayLiteral()`
   - [x] `evalIdentifier()` — looks up in environment
-- [ ] Implement `wronglib` standard library functions
+- [x] Implement `wronglib` standard library functions
 - [x] All interpreter tests pass
-- [ ] Coverage ≥ 85%
+- [x] Coverage ≥ 85%
 
 ---
 
