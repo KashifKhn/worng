@@ -5,26 +5,45 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel in-progress runs on the same branch/PR to save CI minutes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
-    name: Test
+    name: Test (Go ${{ matrix.go }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [stable, oldstable]
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version: ${{ matrix.go }}
+          cache: true
 
       - name: Vet
         run: go vet ./...
 
-      - name: Test
-        run: go test ./... -race -coverprofile=coverage.out
+      - name: Test with race detector and coverage
+        run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Golden tests (verbose)
+        run: go test ./internal/golden -run TestGolden -v -race
+
+      - name: Upload coverage to Codecov
+        if: matrix.go == 'stable'
+        uses: codecov/codecov-action@v5
         with:
-          file: coverage.out
+          files: coverage.out
         continue-on-error: true
 
   lint:
@@ -32,25 +51,52 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - uses: golangci/golangci-lint-action@v6
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
-          install-mode: goinstall
+          version: v2.10.1
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: true
 
       - name: Build CLI
-        run: go build ./cmd/worng
+        run: CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" ./cmd/worng
 
-      - name: Build WASM
+      - name: Build WASM playground
         run: GOOS=js GOARCH=wasm go build -o playground/worng.wasm ./playground
+
+  fuzz:
+    name: Fuzz (30s smoke)
+    runs-on: ubuntu-latest
+    # Only run on push to main, not on every PR to keep CI fast
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Fuzz lexer
+        run: go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=30s -fuzzminimizetime=10s
+
+      - name: Fuzz parser
+        run: go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=30s -fuzzminimizetime=10s
+
+      - name: Fuzz interpreter
+        run: go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=30s -fuzzminimizetime=10s
