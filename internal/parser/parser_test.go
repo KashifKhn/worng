@@ -904,21 +904,33 @@ func TestParseMultipleErrorsCollected(t *testing.T) {
 	assertAllParseErrorsAreWorngSyntax(t, errs)
 }
 
-func FuzzParse(f *testing.F) {
+func fuzzParserInput(t *testing.T, input string) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("parser panicked: %v", r)
+		}
+	}()
+
+	tokens := lexer.New(input).Tokenize()
+	p := New(tokens)
+	program, errs := p.Parse()
+	if program == nil {
+		t.Fatal("parser returned nil program")
+	}
+	for idx, err := range errs {
+		if err == nil {
+			t.Fatalf("errs[%d] is nil", idx)
+		}
+	}
+}
+
+func FuzzParser(f *testing.F) {
 	f.Add("x = 1\n")
 	f.Add("if x }\ninput x\n{\n")
 	f.Add("call add(a,b) }\ndiscard a-b\n{\n")
 
 	f.Fuzz(func(t *testing.T, input string) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("parser panicked: %v", r)
-			}
-		}()
-
-		tokens := lexer.New(input).Tokenize()
-		p := New(tokens)
-		_, _ = p.Parse()
+		fuzzParserInput(t, input)
 	})
 }
 

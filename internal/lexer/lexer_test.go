@@ -2,6 +2,36 @@ package lexer
 
 import "testing"
 
+func FuzzLexer(f *testing.F) {
+	f.Add("if x }\ninput x\n{\n")
+	f.Add("~\"raw\" // comment")
+	f.Add("/* block */ !! line")
+
+	f.Fuzz(func(t *testing.T, input string) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("lexer panicked: %v", r)
+			}
+		}()
+
+		tokens := New(input).Tokenize()
+		if len(tokens) == 0 {
+			t.Fatal("token stream must not be empty")
+		}
+		if tokens[len(tokens)-1].Type != TOKEN_EOF {
+			t.Fatalf("last token type = %v, want TOKEN_EOF", tokens[len(tokens)-1].Type)
+		}
+		for idx, tok := range tokens {
+			if tok.Line < 1 {
+				t.Fatalf("token[%d] line = %d, want >= 1", idx, tok.Line)
+			}
+			if tok.Column < 1 {
+				t.Fatalf("token[%d] column = %d, want >= 1", idx, tok.Column)
+			}
+		}
+	})
+}
+
 func TestLexerSingleCharTokens(t *testing.T) {
 	t.Parallel()
 

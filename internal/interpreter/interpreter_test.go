@@ -8,7 +8,52 @@ import (
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
 	"github.com/KashifKhn/worng/internal/lexer"
+	"github.com/KashifKhn/worng/internal/parser"
 )
+
+func FuzzInterpreter(f *testing.F) {
+	f.Add("// input ~\"hello\"\n")
+	f.Add("// x = 1\n// input x\n")
+	f.Add("// if false }\n// input ~\"if\"\n// { else }\n// input ~\"else\"\n// {\n")
+
+	f.Fuzz(func(t *testing.T, source string) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("interpreter panicked: %v", r)
+			}
+		}()
+
+		prepared := strings.Join(lexer.Preprocess(source), "\n")
+		if prepared != "" {
+			prepared += "\n"
+		}
+
+		tokens := lexer.New(prepared).Tokenize()
+		p := parser.New(tokens)
+		program, errs := p.Parse()
+		if len(errs) > 0 {
+			for idx, err := range errs {
+				if err == nil {
+					t.Fatalf("parse errs[%d] is nil", idx)
+				}
+			}
+			return
+		}
+		if program == nil {
+			t.Fatal("parser returned nil program")
+		}
+
+		var out bytes.Buffer
+		i := New(&out, strings.NewReader(""))
+		err := i.Run(program)
+		if err == nil {
+			return
+		}
+		if _, ok := err.(*diagnostics.WorngError); !ok {
+			t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+		}
+	})
+}
 
 func TestRunProgramDefaultExecutesBottomToTop(t *testing.T) {
 	t.Parallel()
