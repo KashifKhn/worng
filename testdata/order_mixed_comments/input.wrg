@@ -1,6 +1,6 @@
-// input ~"line4"
-!! input ~"line3"
+// input ~"line1"
+!! input ~"line2"
 /*
-input ~"line2"
+input ~"line3"
 */
-!* input ~"line1" *!
+!* input ~"line4" *!

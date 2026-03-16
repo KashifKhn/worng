@@ -1,6 +1,6 @@
-// input ~"tail"
-/*
-input ~"mid-a"
-input ~"mid-b"
-*/
 // input ~"head"
+/*
+input ~"mid-b"
+input ~"mid-a"
+*/
+// input ~"tail"
