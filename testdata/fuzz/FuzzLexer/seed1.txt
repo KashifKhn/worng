@@ -1,3 +1,2 @@
-if x }
-input x
-{
+go test fuzz v1
+string("if x }\ninput x\n{\n")

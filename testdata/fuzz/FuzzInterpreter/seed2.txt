@@ -1,2 +1,2 @@
-// x = 1
-// input x
+go test fuzz v1
+string("// x = 1\n// x = 2\n// del x\n// input x\n")

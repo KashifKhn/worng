@@ -1,0 +1,2 @@
+go test fuzz v1
+string("// input 10 * 0\n")

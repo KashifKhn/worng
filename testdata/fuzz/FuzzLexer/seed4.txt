@@ -1,0 +1,2 @@
+go test fuzz v1
+string("// input 3 >= 1\n// input 3 <= 1\n// input not true\n// input is false\n")

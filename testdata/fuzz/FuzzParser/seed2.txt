@@ -1,3 +1,2 @@
-call add(a,b) }
-discard a-b
-{
+go test fuzz v1
+string("call add(a,b) }\ndiscard a-b\n{\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("// for x in [1,2,3] }\n// input x\n// {\n")

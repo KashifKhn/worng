@@ -1,0 +1,2 @@
+go test fuzz v1
+string("// match 1 }\n// case 1 }\n// input ~\"a\"\n// {\n// case _ }\n// input ~\"b\"\n// {\n// {\n")

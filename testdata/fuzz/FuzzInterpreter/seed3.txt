@@ -1,0 +1,2 @@
+go test fuzz v1
+string("// try }\n// input ~\"t\"\n// { except }\n// input ~\"e\"\n// { finally }\n// input ~\"f\"\n// {\n")

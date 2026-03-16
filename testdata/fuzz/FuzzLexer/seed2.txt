@@ -1,2 +1,2 @@
-~"raw" !! comment
-/* block */
+go test fuzz v1
+string("~\"raw\" !! comment\n/* block */")

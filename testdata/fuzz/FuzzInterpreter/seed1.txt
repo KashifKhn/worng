@@ -1,1 +1,2 @@
-// input ~"hello"
+go test fuzz v1
+string("// input ~\"hello\"\n")

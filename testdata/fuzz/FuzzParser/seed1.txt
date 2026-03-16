@@ -1,4 +1,2 @@
-x = 1
-if x }
-input x
-{
+go test fuzz v1
+string("x = 1\nif x }\ninput x\n{\n")
