@@ -1,0 +1,4 @@
+// input define greet(~"WORNG")
+// call greet(name) }
+// discard name
+// {
