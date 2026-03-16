@@ -5,7 +5,7 @@
 WORNG is an esoteric programming language where **everything does the opposite of what it says**.
 
 - Only **comments** are real code — everything else is ignored
-- Programs execute **bottom to top**
+- Programs execute **bottom to top** by default (`--order=btt`)
 - `+` subtracts, `-` adds, `*` divides, `/` multiplies
 - `if` runs when the condition is **false**
 - `while` loops while the condition is **false**
@@ -41,13 +41,18 @@ go install github.com/KashifKhn/worng/cmd/worng@latest
 ## Usage
 
 ```
-worng run <file>      Run a .wrg file
-worng run --repl      Interactive REPL
-worng check <file>    Parse without running
+worng run [--order=btt|ttb] <file>      Run a .wrg file
+worng run [--order=btt|ttb] --repl      Interactive REPL
+worng check [--order=btt|ttb] <file>    Parse without running
 worng fmt <file>      Format in-place
 worng lsp             Start LSP server (stdio)
 worng version         Print version
 ```
+
+Execution order modes:
+
+- `btt` (default): execute top-level statements bottom-to-top
+- `ttb`: execute top-level statements top-to-bottom
 
 ## File Extensions
 

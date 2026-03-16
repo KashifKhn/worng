@@ -95,7 +95,7 @@ docs/
 │
 ├── language/
 │   ├── overview.md                  ← what WORNG is, the 4 design principles
-│   ├── execution-model.md           ← bottom-to-top, comment/code rule
+│   ├── execution-model.md           ← execution order modes + comment/code rule
 │   ├── data-types.md                ← numbers, strings, booleans, null
 │   ├── operators.md                 ← all inverted arithmetic, comparison, logical
 │   ├── control-flow.md              ← if/else, while, for, break/continue, match
@@ -327,11 +327,12 @@ This is the core of this document. For every code phase, there is a checklist of
 #### After Phase 1.1 (Lexer) + 1.2 (Preprocessor)
 
 - [ ] **`language/execution-model.md`** — write in full:
-  - Bottom-to-top execution with a clear annotated example
+  - Bottom-to-top default execution with a clear annotated example
+  - Top-to-bottom optional execution mode (`--order=ttb`) with a clear annotated example
   - The comment/code rule (only `//`, `!!`, `/* */`, `!* *!` lines execute)
   - Single-line vs block comment formats with examples
   - No-nesting rule for block comments
-  - Visual diagram: source file → preprocessor → executable lines (reversed) → interpreter
+  - Visual diagram: source file → preprocessor (source-order extraction) → parser → interpreter scheduler (`btt`/`ttb`)
 
 #### After Phase 1.3 (AST) + 1.4 (Parser)
 
@@ -575,7 +576,7 @@ Detailed content brief for each page. What it must cover, in what order, and wha
 Hero section
   H1: "Wrong by Design."
   Subtitle: "WORNG is an esoteric programming language where everything is inverted."
-  Subtext: "Only comments execute. Programs run bottom-to-top. + means subtract."
+  Subtext: "Only comments execute. Programs default to bottom-to-top. + means subtract."
   CTA buttons: [Get Started] [Playground]
 
 Quick example (3-column layout)
@@ -654,9 +655,10 @@ The comment/code rule
   Mixed styles example
   No-nesting rule
 Execution order
-  Bottom-to-top with annotated source example
-  Step-by-step trace showing which line runs first
-  Diagram: source → preprocessor → reversed executable lines → interpreter
+  Bottom-to-top default (`btt`) with annotated source example
+  Top-to-bottom optional (`ttb`) with annotated source example
+  Step-by-step trace showing which statement runs first in each mode
+  Diagram: source → preprocessor (source-order extraction) → parser → interpreter scheduler (`btt`/`ttb`)
 Scope of reversal
   Only top-level statement order is reversed
   Expressions within a statement evaluate left-to-right (normal)

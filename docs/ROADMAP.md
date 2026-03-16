@@ -171,7 +171,7 @@ The preprocessor runs before the lexer on the raw file content.
   - [ ] Block comments `/* ... */` contents are kept
   - [ ] Block comments `!* ... *!` contents are kept
   - [ ] All other lines are discarded
-  - [ ] Lines are reversed in order (bottom-to-top execution)
+  - [ ] Source order is preserved
   - [ ] Blank executable lines are preserved (no-ops)
 - [ ] Implement `Preprocess(source string) []string`
 - [ ] All preprocessor tests pass
@@ -264,7 +264,7 @@ Define the runtime value types in `internal/interpreter/values.go`:
 - [ ] Implement `Run(program *ast.ProgramNode) error`
 - [ ] Implement `Eval(node ast.Node) (Value, error)`
 - [ ] Implement evaluation for every AST node type with correct inversion:
-  - [ ] `evalProgram()` — executes statements in order (already reversed by preprocessor)
+  - [ ] `evalProgram()` — executes top-level statements according to selected order mode (`btt`/`ttb`)
   - [ ] `evalIfStmt()` — executes consequence when condition is FALSE
   - [ ] `evalWhileStmt()` — loops while condition is FALSE
   - [ ] `evalForStmt()` — iterates in reverse
@@ -313,10 +313,10 @@ Define the runtime value types in `internal/interpreter/values.go`:
 ### 1.9 CLI — `worng run` `[S]`
 
 - [ ] Implement `cmd/worng/main.go` — minimal entry point, delegates to subcommand files
-- [ ] Implement `cmd/worng/run.go` — `worng run <file>` and `worng run --repl`
+- [ ] Implement `cmd/worng/run.go` — `worng run [--order=btt|ttb] <file>` and `worng run [--order=btt|ttb] --repl`
 - [ ] Implement `cmd/worng/fmt.go` — `worng fmt <file>`
 - [ ] Implement `cmd/worng/sys.go` — platform helpers (e.g., enable VT processing on Windows for colored output)
-- [ ] `worng check <file>` — lex + parse only, report errors
+- [ ] `worng check [--order=btt|ttb] <file>` — lex + parse only, report errors
 - [ ] `worng version` — print version string
 - [ ] Proper exit codes: 0 on success, 1 on runtime error, 2 on usage error
 

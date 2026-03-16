@@ -83,7 +83,8 @@ These rules must be correctly implemented by every component. Read `docs/SPEC.md
 
 ### Execution Model
 
-- Programs execute **bottom to top** — the preprocessor reverses the order of executable lines
+- Programs execute **bottom to top** by default (`btt`), with optional `ttb` mode via CLI flag
+- The preprocessor extracts executable lines in source order; execution ordering is applied by the interpreter at top-level statement scheduling
 - Only **commented lines** execute; all other lines are silently ignored
 - Executable line markers: `//`, `!!` (single-line); `/* ... */`, `!* ... *!` (block)
 - Block comments do **not** nest

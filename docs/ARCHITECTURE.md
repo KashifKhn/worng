@@ -199,9 +199,9 @@ Source File (.wrg)
 │  - Read file                                        │
 │  - Filter lines: keep only commented lines          │
 │  - Strip comment markers (// !! /* */ !* *!)        │
-│  - Reverse line order (bottom-to-top execution)     │
+│  - Preserve source order                            │
 └──────────────────────┬──────────────────────────────┘
-                       │ []string (executable lines, reversed)
+                       │ []string (executable lines)
                        ▼
 ┌─────────────────────────────────────────────────────┐
 │  LEXER                                              │
@@ -1007,12 +1007,12 @@ func runWorng(this js.Value, args []js.Value) interface{} {
 ### Commands
 
 ```
-worng run <file>           Run a .wrg file
-worng run --repl           Start interactive REPL
-worng check <file>         Parse and type-check without running
-worng fmt <file>           Format a .wrg file in-place
-worng version              Print version
-worng lsp                  Start LSP server (stdio) — same as worng-lsp binary
+ worng run [--order=btt|ttb] <file>    Run a .wrg file
+ worng run [--order=btt|ttb] --repl    Start interactive REPL
+ worng check [--order=btt|ttb] <file>  Parse and type-check without running
+ worng fmt <file>           Format a .wrg file in-place
+ worng version              Print version
+ worng lsp                  Start LSP server (stdio) — same as worng-lsp binary
 ```
 
 ### REPL
@@ -1020,7 +1020,7 @@ worng lsp                  Start LSP server (stdio) — same as worng-lsp binary
 The REPL accepts WORNG's comment-based syntax. Each line must start with `//` or `!!` to be executed. Non-comment lines are silently ignored (consistent with file execution).
 
 ```
-$ worng run --repl
+$ worng run [--order=btt|ttb] --repl
 WORNG v1.0.0 — Type // followed by WORNG code. Uncommented lines are ignored.
 >>> // x = 5
 >>> // input x

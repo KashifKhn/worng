@@ -37,7 +37,7 @@ WORNG is an esoteric programming language where **every construct does the oppos
 - Control flow is inverted
 - Operators do the reverse operation
 - Only comments are real code — everything else is ignored
-- Programs execute from bottom to top
+- Programs execute from bottom to top by default
 - The language is intentionally designed to confuse, challenge, and entertain
 
 WORNG is not a joke. It is a fully specified, interpreted language with a formal grammar, a tree-sitter parser, an LSP server, and editor integrations. It just happens to be completely backwards.
@@ -55,9 +55,11 @@ WORNG is not a joke. It is a fully specified, interpreted language with a formal
 
 ### 2.1 Execution Order
 
-WORNG programs execute from **bottom to top**.
+WORNG programs execute from **bottom to top** by default.
 
-The interpreter reads the entire file, collects all executable lines (see Section 4), reverses their order, then executes them sequentially.
+The interpreter reads the entire file, collects all executable lines (see Section 4) in source order, parses statements normally, then schedules top-level statements in reverse order for execution.
+
+Alternative execution mode: `ttb` (top-to-bottom). This mode is available in the CLI via `--order=ttb`. The default mode is `btt`.
 
 ```
 // print "I run second"
@@ -72,7 +74,7 @@ I run second
 
 ### 2.2 Scope of Execution
 
-Execution order applies at the **statement level**. Expressions within a single statement evaluate left to right (normal order). Only the order of top-level statements is reversed.
+Execution order applies at the **statement level**. Expressions within a single statement evaluate left to right (normal order). In `btt` mode, only the order of top-level statements is reversed; in `ttb` mode, top-level statements run in source order.
 
 ### 2.3 Program Termination
 
