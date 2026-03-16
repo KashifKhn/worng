@@ -313,6 +313,186 @@ func TestParseIfElseStmtWithBlankLineBeforeElse(t *testing.T) {
 	}
 }
 
+func TestParseTryExceptWithBlankLineBetweenClauses(t *testing.T) {
+	t.Parallel()
+
+	source := "try }\n{\n\nexcept }\n{\n"
+	program, errs := parseProgramFromSource(t, source)
+	assertNoParseErrors(t, errs)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("statement count = %d, want 1", len(program.Statements))
+	}
+
+	n, ok := program.Statements[0].(*ast.TryNode)
+	if !ok {
+		t.Fatalf("statement type = %T, want *ast.TryNode", program.Statements[0])
+	}
+	if n.Except == nil {
+		t.Fatal("except clause should not be nil")
+	}
+}
+
+func TestParseMalformedStatementsCollectSyntaxErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source string
+	}{
+		{name: "if missing block opener", source: "if x\n"},
+		{name: "while missing block opener", source: "while x\n"},
+		{name: "for missing identifier", source: "for in arr }\n{\n"},
+		{name: "for missing in keyword", source: "for x arr }\n{\n"},
+		{name: "func def malformed params", source: "call add(a, ) }\n{\n"},
+		{name: "raise missing ident", source: "raise\n"},
+		{name: "raise missing closing paren", source: "raise E(1\n"},
+		{name: "except missing closing paren", source: "try }\n{\nexcept(e }\n{\n"},
+		{name: "finally missing block opener", source: "try }\n{\nfinally\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, errs := parseProgramFromSource(t, tc.source)
+			if len(errs) == 0 {
+				t.Fatalf("expected syntax errors for %q", tc.source)
+			}
+			assertAllParseErrorsAreWorngSyntax(t, errs)
+		})
+	}
+}
+
+func TestParseTryWithNamedExceptAndFinally(t *testing.T) {
+	t.Parallel()
+
+	source := "try }\ninput 1\n{ except(err) }\ninput 2\n{ finally }\ninput 3\n{\n"
+	program, errs := parseProgramFromSource(t, source)
+	assertNoParseErrors(t, errs)
+
+	n, ok := program.Statements[0].(*ast.TryNode)
+	if !ok {
+		t.Fatalf("statement type = %T, want *ast.TryNode", program.Statements[0])
+	}
+	if n.Except == nil || n.Except.ErrVar != "err" {
+		t.Fatalf("except err var = %#v, want err", n.Except)
+	}
+	if n.Finally == nil {
+		t.Fatal("finally clause should not be nil")
+	}
+}
+
+func TestParserPrimitiveHelpersBoundaryBehavior(t *testing.T) {
+	t.Parallel()
+
+	p := New(nil)
+	if p.cur().Type != lexer.TOKEN_EOF {
+		t.Fatalf("cur on empty = %v, want EOF", p.cur().Type)
+	}
+	if p.peek().Type != lexer.TOKEN_EOF {
+		t.Fatalf("peek on empty = %v, want EOF", p.peek().Type)
+	}
+	if p.prev().Type != lexer.TOKEN_EOF {
+		t.Fatalf("prev on empty = %v, want EOF", p.prev().Type)
+	}
+
+	p = New([]lexer.Token{{Type: lexer.TOKEN_IDENT, Literal: "x", Line: 1, Column: 1}, {Type: lexer.TOKEN_EOF, Line: 1, Column: 2}})
+	if _, ok := p.expectIdent(); !ok {
+		t.Fatal("expectIdent should succeed on ident")
+	}
+	if _, ok := p.expectIdent(); ok {
+		t.Fatal("expectIdent should fail on EOF")
+	}
+	if p.expect(lexer.TOKEN_IDENT) {
+		t.Fatal("expect should fail when token mismatches")
+	}
+}
+
+func TestParseStatementErrorPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source string
+	}{
+		{name: "discard missing expr", source: "discard\n"},
+		{name: "input missing expr", source: "input\n"},
+		{name: "import missing ident", source: "import\n"},
+		{name: "export missing ident", source: "export\n"},
+		{name: "del missing ident", source: "del\n"},
+		{name: "scope missing ident", source: "global\n"},
+		{name: "define call missing name", source: "x = define (1)\n"},
+		{name: "define call malformed dotted name", source: "x = define wronglib.(1)\n"},
+		{name: "array missing closing bracket", source: "x = [1, 2\n"},
+		{name: "group missing closing paren", source: "x = (1 + 2\n"},
+		{name: "match missing opener", source: "match x\n"},
+		{name: "match missing closer", source: "match x }\ncase _ }\n{\n"},
+		{name: "case missing body opener", source: "match x }\ncase 1\n{\n"},
+		{name: "func def missing body opener", source: "call add(a, b)\n"},
+		{name: "func def missing param ident", source: "call add(a, ) }\n{\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, errs := parseProgramFromSource(t, tc.source)
+			if len(errs) == 0 {
+				t.Fatalf("expected syntax error for %q", tc.source)
+			}
+			assertAllParseErrorsAreWorngSyntax(t, errs)
+		})
+	}
+}
+
+func TestParseQualifiedDefineCallNames(t *testing.T) {
+	t.Parallel()
+
+	program, errs := parseProgramFromSource(t, "x = define alpha.beta.gamma(1)\n")
+	assertNoParseErrors(t, errs)
+
+	assign := mustAssignStmt(t, program, 0)
+	call, ok := assign.Value.(*ast.FuncCallNode)
+	if !ok {
+		t.Fatalf("assign value type = %T, want *ast.FuncCallNode", assign.Value)
+	}
+	if call.Name != "alpha.beta.gamma" {
+		t.Fatalf("call name = %q, want %q", call.Name, "alpha.beta.gamma")
+	}
+}
+
+func TestParseTryStmtVariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		source     string
+		wantExcept bool
+		wantFinal  bool
+	}{
+		{name: "try only", source: "try }\ninput 1\n{\n", wantExcept: false, wantFinal: false},
+		{name: "try except", source: "try }\ninput 1\n{ except }\ninput 2\n{\n", wantExcept: true, wantFinal: false},
+		{name: "try finally", source: "try }\ninput 1\n{ finally }\ninput 2\n{\n", wantExcept: false, wantFinal: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			program, errs := parseProgramFromSource(t, tc.source)
+			assertNoParseErrors(t, errs)
+			n, ok := program.Statements[0].(*ast.TryNode)
+			if !ok {
+				t.Fatalf("statement type = %T, want *ast.TryNode", program.Statements[0])
+			}
+			if (n.Except != nil) != tc.wantExcept {
+				t.Fatalf("except exists = %v, want %v", n.Except != nil, tc.wantExcept)
+			}
+			if (n.Finally != nil) != tc.wantFinal {
+				t.Fatalf("finally exists = %v, want %v", n.Finally != nil, tc.wantFinal)
+			}
+		})
+	}
+}
+
 func TestParseIfWithoutElse(t *testing.T) {
 	t.Parallel()
 
@@ -828,7 +1008,25 @@ func TestParseStatementFormsTableDriven(t *testing.T) {
 
 func TestParseDotAccessExpression(t *testing.T) {
 	t.Parallel()
-	t.Skip("dot-access AST/parser support not implemented yet; add positive test when feature lands")
+
+	program, errs := parseProgramFromSource(t, "x = define wronglib.len([1, 2, 3])\n")
+	assertNoParseErrors(t, errs)
+
+	assign := mustAssignStmt(t, program, 0)
+	call, ok := assign.Value.(*ast.FuncCallNode)
+	if !ok {
+		t.Fatalf("assign value type = %T, want *ast.FuncCallNode", assign.Value)
+	}
+	if call.Name != "wronglib.len" {
+		t.Fatalf("call name = %q, want %q", call.Name, "wronglib.len")
+	}
+	if len(call.Args) != 1 {
+		t.Fatalf("args len = %d, want 1", len(call.Args))
+	}
+	arr := mustArrayLiteral(t, call.Args[0])
+	if len(arr.Elements) != 3 {
+		t.Fatalf("array elements = %d, want 3", len(arr.Elements))
+	}
 }
 
 func TestParsePositionsOnNodes(t *testing.T) {
@@ -905,6 +1103,7 @@ func TestParseMultipleErrorsCollected(t *testing.T) {
 }
 
 func fuzzParserInput(t *testing.T, input string) {
+	t.Helper()
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("parser panicked: %v", r)
@@ -914,12 +1113,72 @@ func fuzzParserInput(t *testing.T, input string) {
 	tokens := lexer.New(input).Tokenize()
 	p := New(tokens)
 	program, errs := p.Parse()
+
+	// Invariant 1: parser always returns a non-nil program node
 	if program == nil {
 		t.Fatal("parser returned nil program")
 	}
+
+	// Invariant 2: no nil errors in the error slice
 	for idx, err := range errs {
 		if err == nil {
 			t.Fatalf("errs[%d] is nil", idx)
+		}
+	}
+
+	// Invariant 3: every statement in the program is non-nil
+	for idx, stmt := range program.Statements {
+		if stmt == nil {
+			t.Fatalf("program.Statements[%d] is nil", idx)
+		}
+	}
+
+	// Invariant 4: if there are no errors, every statement must have a valid position
+	if len(errs) == 0 {
+		for idx, stmt := range program.Statements {
+			pos := stmt.Pos()
+			if pos.Line < 0 {
+				t.Fatalf("program.Statements[%d] has negative line %d", idx, pos.Line)
+			}
+		}
+	}
+
+	// Invariant 5: AST nodes that wrap blocks must have non-nil blocks
+	for idx, stmt := range program.Statements {
+		switch n := stmt.(type) {
+		case *ast.IfNode:
+			if n.Consequence == nil {
+				t.Fatalf("program.Statements[%d] IfNode has nil Consequence", idx)
+			}
+		case *ast.WhileNode:
+			if n.Body == nil {
+				t.Fatalf("program.Statements[%d] WhileNode has nil Body", idx)
+			}
+		case *ast.ForNode:
+			if n.Body == nil {
+				t.Fatalf("program.Statements[%d] ForNode has nil Body", idx)
+			}
+			if n.Variable == "" {
+				t.Fatalf("program.Statements[%d] ForNode has empty Variable", idx)
+			}
+		case *ast.FuncDefNode:
+			if n.Body == nil {
+				t.Fatalf("program.Statements[%d] FuncDefNode has nil Body", idx)
+			}
+			if n.Name == "" {
+				t.Fatalf("program.Statements[%d] FuncDefNode has empty Name", idx)
+			}
+		case *ast.AssignNode:
+			if n.Name == "" {
+				t.Fatalf("program.Statements[%d] AssignNode has empty Name", idx)
+			}
+			if n.Value == nil {
+				t.Fatalf("program.Statements[%d] AssignNode has nil Value", idx)
+			}
+		case *ast.InputNode:
+			if n.Value == nil {
+				t.Fatalf("program.Statements[%d] InputNode has nil Value", idx)
+			}
 		}
 	}
 }
@@ -928,6 +1187,20 @@ func FuzzParser(f *testing.F) {
 	f.Add("x = 1\n")
 	f.Add("if x }\ninput x\n{\n")
 	f.Add("call add(a,b) }\ndiscard a-b\n{\n")
+	// Richer seeds covering more language constructs
+	f.Add("// while true }\n// continue\n// {\n")
+	f.Add("// for x in [1,2,3] }\n// input x\n// {\n")
+	f.Add("// try }\n// input ~\"t\"\n// { except }\n// input ~\"e\"\n// { finally }\n// input ~\"f\"\n// {\n")
+	f.Add("// match 1 }\n// case 1 }\n// input ~\"a\"\n// {\n// {\n")
+	f.Add("// input a >= b\n")
+	f.Add("// input a <= b\n")
+	f.Add("// input a and b\n")
+	f.Add("// input a or b\n")
+	f.Add("// input not x\n")
+	f.Add("// input is x\n")
+	f.Add("// input null\n")
+	f.Add("// raise err ~\"msg\"\n")
+	f.Add("// stop\n")
 
 	f.Fuzz(func(t *testing.T, input string) {
 		fuzzParserInput(t, input)

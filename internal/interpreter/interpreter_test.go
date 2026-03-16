@@ -766,3 +766,237 @@ func TestEvalMatchCaseInversionAndWildcard(t *testing.T) {
 		t.Fatalf("output = %q, want %q", out.String(), "exactly one\n")
 	}
 }
+
+func TestEvalWronglibBuiltins(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	i := NewWithOrder(&out, strings.NewReader(""), OrderTopToBottom)
+	program := &ast.ProgramNode{Statements: []ast.Statement{
+		&ast.InputNode{Value: &ast.FuncCallNode{Name: "wronglib.len", Args: []ast.Expression{
+			&ast.ArrayLiteral{Elements: []ast.Expression{&ast.NumberLiteral{Value: 10}, &ast.NumberLiteral{Value: 20}, &ast.NumberLiteral{Value: 30}}},
+		}}},
+		&ast.InputNode{Value: &ast.FuncCallNode{Name: "wronglib.max", Args: []ast.Expression{
+			&ast.ArrayLiteral{Elements: []ast.Expression{&ast.NumberLiteral{Value: 10}, &ast.NumberLiteral{Value: 20}, &ast.NumberLiteral{Value: 30}}},
+		}}},
+		&ast.InputNode{Value: &ast.FuncCallNode{Name: "wronglib.min", Args: []ast.Expression{
+			&ast.ArrayLiteral{Elements: []ast.Expression{&ast.NumberLiteral{Value: 10}, &ast.NumberLiteral{Value: 20}, &ast.NumberLiteral{Value: 30}}},
+		}}},
+		&ast.InputNode{Value: &ast.FuncCallNode{Name: "wronglib.sort", Args: []ast.Expression{
+			&ast.ArrayLiteral{Elements: []ast.Expression{&ast.NumberLiteral{Value: 2}, &ast.NumberLiteral{Value: 1}, &ast.NumberLiteral{Value: 3}}},
+		}}},
+		&ast.InputNode{Value: &ast.FuncCallNode{Name: "wronglib.abs", Args: []ast.Expression{&ast.NumberLiteral{Value: -7}}}},
+	}}
+
+	if err := i.Run(program); err != nil {
+		t.Fatalf("run error: %v", err)
+	}
+
+	want := "2\n10\n30\n[3, 2, 1]\n-7\n"
+	if out.String() != want {
+		t.Fatalf("output = %q, want %q", out.String(), want)
+	}
+}
+
+func TestEvalWronglibTypeErrors(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	_, err := i.Eval(&ast.FuncCallNode{Name: "wronglib.len", Args: []ast.Expression{&ast.NumberLiteral{Value: 1}}})
+	if err == nil {
+		t.Fatal("expected type mismatch error")
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+	}
+	if we.Diag.Code != diagnostics.TypeMismatch.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.TypeMismatch.Code)
+	}
+}
+
+func TestEvalUnknownWronglibFunctionErrors(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	_, err := i.Eval(&ast.FuncCallNode{Name: "wronglib.nope", Args: nil})
+	if err == nil {
+		t.Fatal("expected undefined-variable error")
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+	}
+	if we.Diag.Code != diagnostics.UndefinedVariable.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.UndefinedVariable.Code)
+	}
+}
+
+func TestEvalWronglibArgumentErrors(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	tests := []struct {
+		name string
+		call *ast.FuncCallNode
+	}{
+		{name: "len missing arg", call: &ast.FuncCallNode{Name: "wronglib.len"}},
+		{name: "max empty array", call: &ast.FuncCallNode{Name: "wronglib.max", Args: []ast.Expression{&ast.ArrayLiteral{Elements: nil}}}},
+		{name: "min empty array", call: &ast.FuncCallNode{Name: "wronglib.min", Args: []ast.Expression{&ast.ArrayLiteral{Elements: nil}}}},
+		{name: "sort non-number array", call: &ast.FuncCallNode{Name: "wronglib.sort", Args: []ast.Expression{&ast.ArrayLiteral{Elements: []ast.Expression{&ast.StringLiteral{Value: "x", Raw: true}}}}}},
+		{name: "abs non-number", call: &ast.FuncCallNode{Name: "wronglib.abs", Args: []ast.Expression{&ast.StringLiteral{Value: "x", Raw: true}}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := i.Eval(tc.call)
+			if err == nil {
+				t.Fatal("expected type mismatch error")
+			}
+			we, ok := err.(*diagnostics.WorngError)
+			if !ok {
+				t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+			}
+			if we.Diag.Code != diagnostics.TypeMismatch.Code {
+				t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.TypeMismatch.Code)
+			}
+		})
+	}
+}
+
+func TestRootEnvAndDeletionRuleHelpers(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	root := i.rootEnv()
+	if root != i.env {
+		t.Fatal("root env should be current env when no outer")
+	}
+
+	enclosed := NewEnclosedEnvironment(i.env)
+	i.env = enclosed
+	if i.rootEnv() != root {
+		t.Fatal("root env lookup should walk outers")
+	}
+
+	setWithDeletionRule(root, "x", NewNumberValue(1))
+	if _, ok := root.store["x"]; !ok {
+		t.Fatal("x should exist after first helper set")
+	}
+	setWithDeletionRule(root, "x", NewNumberValue(2))
+	if _, ok := root.store["x"]; ok {
+		t.Fatal("x should be deleted after second helper set")
+	}
+}
+
+func TestValuesEqualCoversKinds(t *testing.T) {
+	t.Parallel()
+
+	if !valuesEqual(NewNumberValue(2), NewNumberValue(2)) {
+		t.Fatal("number equality should be true")
+	}
+	if !valuesEqual(NewStringValue("x", false), NewStringValue("x", true)) {
+		t.Fatal("string equality should ignore raw flag")
+	}
+	if valuesEqual(NewBoolValue(true), NewBoolValue(false)) {
+		t.Fatal("different bool literals should not be equal")
+	}
+	if !valuesEqual(Null, Null) {
+		t.Fatal("null equality should be true")
+	}
+	if valuesEqual(NewStringValue("x", false), NewNumberValue(1)) {
+		t.Fatal("different types should not be equal")
+	}
+}
+
+func TestRunNilProgramIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	if err := i.Run(nil); err != nil {
+		t.Fatalf("run nil error: %v", err)
+	}
+}
+
+func TestEvalProgramReturnsDiscardedValue(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	program := &ast.ProgramNode{Statements: []ast.Statement{
+		&ast.DiscardNode{Value: &ast.NumberLiteral{Value: 5}},
+	}}
+	v, err := i.Eval(program)
+	if err != nil {
+		t.Fatalf("eval error: %v", err)
+	}
+	if v.Inspect() != "5" {
+		t.Fatalf("inspect = %q, want %q", v.Inspect(), "5")
+	}
+}
+
+func TestEvalExprStmtReturnsUnderlyingValue(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	v, err := i.Eval(&ast.ExprStmt{Expr: &ast.NumberLiteral{Value: 9}})
+	if err != nil {
+		t.Fatalf("eval error: %v", err)
+	}
+	if v.Inspect() != "9" {
+		t.Fatalf("inspect = %q, want %q", v.Inspect(), "9")
+	}
+}
+
+func TestEvalUnarySyntaxErrorOnUnknownOperator(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	_, err := i.Eval(&ast.UnaryNode{Operator: lexer.TOKEN_PLUS, Operand: &ast.NumberLiteral{Value: 1}})
+	if err == nil {
+		t.Fatal("expected syntax error")
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+	}
+	if we.Diag.Code != diagnostics.SyntaxError.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.SyntaxError.Code)
+	}
+}
+
+func TestEvalTryWithoutExceptSkipsBody(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	i := New(&out, strings.NewReader(""))
+	_, err := i.Eval(&ast.TryNode{Body: &ast.BlockNode{Statements: []ast.Statement{
+		&ast.InputNode{Value: &ast.StringLiteral{Value: "no", Raw: true}},
+	}}})
+	if err != nil {
+		t.Fatalf("eval error: %v", err)
+	}
+	if out.String() != "" {
+		t.Fatalf("output = %q, want empty", out.String())
+	}
+}
+
+func TestEvalMatchReturnsErrorFromSubject(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	_, err := i.Eval(&ast.MatchNode{Subject: &ast.IdentNode{Name: "missing"}})
+	if err == nil {
+		t.Fatal("expected undefined variable error")
+	}
+}
+
+func TestEvalBinaryUnsupportedOperandTypesError(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	_, err := i.Eval(&ast.BinaryNode{Left: &ast.NullLiteral{}, Operator: lexer.TOKEN_PLUS, Right: &ast.NullLiteral{}})
+	if err == nil {
+		t.Fatal("expected type mismatch error")
+	}
+}

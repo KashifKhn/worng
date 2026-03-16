@@ -3,9 +3,31 @@ package lexer
 import "testing"
 
 func FuzzLexer(f *testing.F) {
+	// Basic structural seeds
 	f.Add("if x }\ninput x\n{\n")
 	f.Add("~\"raw\" // comment")
 	f.Add("/* block */ !! line")
+	// Operator-heavy seeds
+	f.Add("// x = 1 + 2 - 3 * 4 / 5 % 6 ** 7\n")
+	f.Add("// if a == b }\n// {\n")
+	f.Add("// if a != b }\n// {\n")
+	f.Add("// if a >= b }\n// {\n")
+	f.Add("// if a <= b }\n// {\n")
+	// Raw string edge cases
+	f.Add("~\"\" // empty raw")
+	f.Add("\"unterminated")
+	f.Add("~\"unterminated raw")
+	// Block comment edge cases
+	f.Add("/* not nested /* inner */ end")
+	f.Add("!* worng block *!")
+	f.Add("/* empty */")
+	// Keywords
+	f.Add("// and or not is true false null stop raise\n")
+	f.Add("// break continue del global local\n")
+	// Number edge cases
+	f.Add("// input 0\n")
+	f.Add("// input 3.14\n")
+	f.Add("// input -42\n")
 
 	f.Fuzz(func(t *testing.T, input string) {
 		defer func() {
@@ -15,18 +37,57 @@ func FuzzLexer(f *testing.F) {
 		}()
 
 		tokens := New(input).Tokenize()
+
+		// Invariant 1: token stream is never empty — TOKEN_EOF must always be present
 		if len(tokens) == 0 {
 			t.Fatal("token stream must not be empty")
 		}
+
+		// Invariant 2: last token is always TOKEN_EOF
 		if tokens[len(tokens)-1].Type != TOKEN_EOF {
 			t.Fatalf("last token type = %v, want TOKEN_EOF", tokens[len(tokens)-1].Type)
 		}
+
+		// Invariant 3: TOKEN_EOF appears exactly once
+		eofCount := 0
+		for _, tok := range tokens {
+			if tok.Type == TOKEN_EOF {
+				eofCount++
+			}
+		}
+		if eofCount != 1 {
+			t.Fatalf("TOKEN_EOF count = %d, want exactly 1", eofCount)
+		}
+
+		// Invariant 4: all tokens have valid (>= 1) line and column positions
 		for idx, tok := range tokens {
 			if tok.Line < 1 {
-				t.Fatalf("token[%d] line = %d, want >= 1", idx, tok.Line)
+				t.Fatalf("token[%d] (type=%v literal=%q) line = %d, want >= 1", idx, tok.Type, tok.Literal, tok.Line)
 			}
 			if tok.Column < 1 {
-				t.Fatalf("token[%d] column = %d, want >= 1", idx, tok.Column)
+				t.Fatalf("token[%d] (type=%v literal=%q) column = %d, want >= 1", idx, tok.Type, tok.Literal, tok.Column)
+			}
+		}
+
+		// Invariant 5: line numbers never decrease token-to-token
+		for idx := 1; idx < len(tokens); idx++ {
+			if tokens[idx].Line < tokens[idx-1].Line {
+				t.Fatalf("token[%d] line %d < token[%d] line %d — positions went backwards",
+					idx, tokens[idx].Line, idx-1, tokens[idx-1].Line)
+			}
+		}
+
+		// Invariant 6: TOKEN_ILLEGAL tokens must record what character was seen
+		for idx, tok := range tokens {
+			if tok.Type == TOKEN_ILLEGAL && tok.Literal == "" {
+				t.Fatalf("token[%d] is TOKEN_ILLEGAL but has empty literal", idx)
+			}
+		}
+
+		// Invariant 7: TOKEN_NUMBER tokens must have non-empty literals
+		for idx, tok := range tokens {
+			if tok.Type == TOKEN_NUMBER && tok.Literal == "" {
+				t.Fatalf("token[%d] is TOKEN_NUMBER but has empty literal", idx)
 			}
 		}
 	})

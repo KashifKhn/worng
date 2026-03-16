@@ -107,9 +107,6 @@ func TestErrorImplementsErrorInterface(t *testing.T) {
 	t.Parallel()
 
 	var err error = New(SyntaxError, Position{})
-	if err == nil {
-		t.Fatalf("WorngError should implement error interface")
-	}
 	if err.Error() == "" {
 		t.Fatalf("Error() returned empty string")
 	}
