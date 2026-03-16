@@ -240,19 +240,6 @@ func (g *generator) stmtScope(b *strings.Builder) {
 	line(b, fmt.Sprintf("%s %s", kw, g.ident()))
 }
 
-// block emits an opening }, body statements, and closing {.
-// In WORNG: } opens a block, { closes it.
-func (g *generator) block(b *strings.Builder, depth int) {
-	// } is TOKEN_LBRACE (opens block) — appended to the preceding line
-	// { is TOKEN_RBRACE (closes block) — on its own line
-	b.WriteString("}\n") // close the preceding header line's block open
-	count := g.pick(3)
-	for i := 0; i < count; i++ {
-		g.stmt(b, depth+1)
-	}
-	line(b, "{")
-}
-
 // headerLine emits "// <keyword> <expr> }" — the opening line of a block statement.
 func headerLine(b *strings.Builder, content string) {
 	b.WriteString("// ")
