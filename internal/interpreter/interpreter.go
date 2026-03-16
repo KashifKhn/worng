@@ -31,15 +31,21 @@ type Interpreter struct {
 	env         *Environment
 	stdout      io.Writer
 	stdin       *bufio.Reader
+	order       ExecutionOrder
 	scopeGlobal map[string]bool
 	modules     map[string]bool
 }
 
 func New(stdout io.Writer, stdin io.Reader) *Interpreter {
+	return NewWithOrder(stdout, stdin, OrderBottomToTop)
+}
+
+func NewWithOrder(stdout io.Writer, stdin io.Reader, order ExecutionOrder) *Interpreter {
 	return &Interpreter{
 		env:         NewEnvironment(),
 		stdout:      stdout,
 		stdin:       bufio.NewReader(stdin),
+		order:       order,
 		scopeGlobal: map[string]bool{},
 		modules:     map[string]bool{},
 	}
@@ -49,9 +55,18 @@ func (i *Interpreter) Run(program *ast.ProgramNode) error {
 	if program == nil {
 		return nil
 	}
-	for idx := len(program.Statements) - 1; idx >= 0; idx-- {
-		if _, err := i.Eval(program.Statements[idx]); err != nil {
-			return err
+	switch i.order {
+	case OrderTopToBottom:
+		for _, stmt := range program.Statements {
+			if _, err := i.Eval(stmt); err != nil {
+				return err
+			}
+		}
+	default:
+		for idx := len(program.Statements) - 1; idx >= 0; idx-- {
+			if _, err := i.Eval(program.Statements[idx]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
