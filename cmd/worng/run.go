@@ -65,9 +65,9 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 	in := bufio.NewScanner(stdin)
 	var history bytes.Buffer
 
-	fmt.Fprintln(stdout, "WORNG v0.1.0 — Type // or !! followed by WORNG code.")
+	_, _ = fmt.Fprintln(stdout, "WORNG v0.1.0 — Type // or !! followed by WORNG code.")
 	for {
-		fmt.Fprint(stdout, ">>> ")
+		_, _ = fmt.Fprint(stdout, ">>> ")
 		if !in.Scan() {
 			break
 		}
@@ -79,18 +79,18 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 		p := parser.New(tokens)
 		program, errs := p.Parse()
 		if len(errs) > 0 {
-			fmt.Fprintln(stderr, errs[len(errs)-1])
+			_, _ = fmt.Fprintln(stderr, errs[len(errs)-1])
 			continue
 		}
 
 		it := interpreter.NewWithOrder(stdout, stdin, order)
 		if err := it.Run(program); err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 		}
 	}
 
 	if err := in.Err(); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	return 0

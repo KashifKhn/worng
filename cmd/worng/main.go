@@ -25,6 +25,8 @@ func runCLI(args []string) int {
 		return checkCommand(args[1:])
 	case "fmt":
 		return fmtCommand(args[1:])
+	case "lsp":
+		return lspCommand()
 	case "version":
 		fmt.Println(version)
 		return 0
@@ -41,5 +43,6 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  worng run [--order=btt|ttb] --repl")
 	fmt.Fprintln(os.Stderr, "  worng check [--order=btt|ttb] <file>")
 	fmt.Fprintln(os.Stderr, "  worng fmt <file>")
+	fmt.Fprintln(os.Stderr, "  worng lsp")
 	fmt.Fprintln(os.Stderr, "  worng version")
 }

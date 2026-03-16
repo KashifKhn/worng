@@ -32,7 +32,7 @@ func checkCommand(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Fprintln(os.Stdout, "OK")
+	_, _ = fmt.Fprintln(os.Stdout, "OK")
 	return 0
 }
 
