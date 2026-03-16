@@ -324,26 +324,27 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 1.10 Golden File Tests `[M]`
 
-- [ ] Write golden test runner in `testdata/golden_test.go`
-- [ ] Use `internal/vfs.MemFS` to run tests without real file I/O
+- [x] Write golden test runner (`TestGolden`) and wire it to `make test-golden`
+- [x] Use `internal/vfs.MemFS` to run tests without real disk I/O
 - [ ] Create golden test cases:
-  - [ ] `hello` — hello world
-  - [ ] `numbers` — arithmetic with all inverted operators
-  - [ ] `strings` — regular string output reversed; raw string (`~`) output as-is
-  - [ ] `booleans` — true/false inversion
-  - [ ] `if_else` — control flow inversion
-  - [ ] `while_loop` — loop while false
-  - [ ] `for_loop` — reverse iteration
-  - [ ] `variables` — deletion rule
-  - [ ] `del_keyword` — creates variable
-  - [ ] `functions` — call/define, reversed params, discard/return
-  - [ ] `scope` — global/local inversion
-  - [ ] `fizzbuzz` — comprehensive integration test
-  - [ ] `fibonacci` — recursion test
-  - [ ] `arrays` — array operations
-  - [ ] `wronglib` — standard library
-  - [ ] `error_messages` — verify encouraging error output
-- [ ] All golden tests pass
+  - [x] `hello` — hello world
+  - [x] `numbers` — arithmetic with all inverted operators
+  - [x] `strings` — regular string output reversed; raw string (`~`) output as-is
+  - [x] `booleans` — true/false inversion
+  - [x] `if_else` — control flow inversion
+  - [x] `while_loop` — loop while false
+  - [x] `for_loop` — reverse iteration (order-focused fixtures)
+  - [x] `variables` — deletion rule
+  - [x] `del_keyword` — creates variable
+  - [x] `functions` — call/define, reversed params, discard/return
+  - [x] `scope` — global/local inversion
+  - [x] `fizzbuzz` — comprehensive integration test
+  - [x] `fibonacci` — recursion test
+  - [x] `arrays` — array operations
+  - [x] `wronglib` — current behavior (undefined module until stdlib lands)
+  - [x] `error_messages` — verify encouraging error output
+- [x] Existing order fixtures pass (`order_single_line`, `order_mixed_comments`, `order_block_inner`)
+- [x] Both execution modes are covered (`btt` default fixtures + `ttb` fixtures via `order.txt`)
 
 ---
 
