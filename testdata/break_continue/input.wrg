@@ -1,0 +1,15 @@
+break acts as continue (advances to next iteration)
+for iterates in reverse - visits 1, 2, 3 in order
+break before input x - every iteration skips printing, so nothing printed
+// for x in [3, 2, 1] }
+// break
+// input x
+// {
+// input ~"after-break-loop"
+continue acts as break (exits the loop)
+for loop visits 1 first; continue exits immediately
+// for y in [3, 2, 1] }
+// input y
+// continue
+// {
+// input ~"after-continue-loop"

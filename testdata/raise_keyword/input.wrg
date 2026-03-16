@@ -1,0 +1,7 @@
+note: raise no-op test
+// try }
+// {
+// except }
+// raise Oops
+// input ~"raise-no-op"
+// {
