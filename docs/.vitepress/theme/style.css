@@ -108,3 +108,37 @@ td {
 tr:hover td {
   background-color: var(--vp-c-bg-soft);
 }
+
+/* ── Sidebar consistency ───────────────────────────────────────── */
+
+/* Group headers: same weight/color as normal text, not bold red */
+.VPSidebarItem.level-0 > .item > .text {
+  color: var(--vp-c-text-1);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* All sidebar links: uniform muted color by default */
+.VPSidebarItem .link .text {
+  color: var(--vp-c-text-2);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* Hover: slightly brighter */
+.VPSidebarItem .link:hover .text {
+  color: var(--vp-c-text-1);
+}
+
+/* Active link: brand red only */
+.VPSidebarItem.is-active > .item > .link .text {
+  color: var(--vp-c-brand-1) !important;
+  font-weight: 500;
+}
+
+/* Remove any unintended red on non-active group headers */
+.VPSidebarItem.level-0.is-active > .item > .text {
+  color: var(--vp-c-text-1);
+}
