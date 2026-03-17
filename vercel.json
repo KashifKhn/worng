@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd docs && npm install && npm run build",
-  "outputDirectory": "docs/.vitepress/dist",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".vitepress/dist",
   "framework": null
 }
