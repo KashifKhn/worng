@@ -194,46 +194,41 @@ export default defineConfig({
       },
     ],
 
-    sidebar: {
-      '/guide/': [
-        {
-          text: 'Guide',
-          items: [
-            { text: 'Getting Started', link: '/guide/getting-started' },
-          ],
-        },
-      ],
-
-      '/language/': [
-        {
-          text: 'Language Reference',
-          items: [
-            { text: 'Overview', link: '/language/overview' },
-            { text: 'Execution Model', link: '/language/execution-model' },
-            { text: 'Data Types', link: '/language/data-types' },
-            { text: 'Operators', link: '/language/operators' },
-            { text: 'Control Flow', link: '/language/control-flow' },
-            { text: 'Variables', link: '/language/variables' },
-            { text: 'Functions', link: '/language/functions' },
-            { text: 'Input & Output', link: '/language/io' },
-            { text: 'Error Handling', link: '/language/error-handling' },
-            { text: 'Modules', link: '/language/modules' },
-            { text: 'Reserved Words', link: '/language/reserved-words' },
-            { text: 'Grammar', link: '/language/grammar' },
-          ],
-        },
-      ],
-
-      '/': [
-        {
-          text: 'Internals',
-          items: [
-            { text: 'Architecture', link: '/architecture' },
-            { text: 'Roadmap', link: '/roadmap' },
-          ],
-        },
-      ],
-    },
+    sidebar: [
+      {
+        text: 'Guide',
+        collapsed: false,
+        items: [
+          { text: 'Getting Started', link: '/guide/getting-started' },
+        ],
+      },
+      {
+        text: 'Language Reference',
+        collapsed: false,
+        items: [
+          { text: 'Overview', link: '/language/overview' },
+          { text: 'Execution Model', link: '/language/execution-model' },
+          { text: 'Data Types', link: '/language/data-types' },
+          { text: 'Operators', link: '/language/operators' },
+          { text: 'Control Flow', link: '/language/control-flow' },
+          { text: 'Variables', link: '/language/variables' },
+          { text: 'Functions', link: '/language/functions' },
+          { text: 'Input & Output', link: '/language/io' },
+          { text: 'Error Handling', link: '/language/error-handling' },
+          { text: 'Modules', link: '/language/modules' },
+          { text: 'Reserved Words', link: '/language/reserved-words' },
+          { text: 'Grammar', link: '/language/grammar' },
+        ],
+      },
+      {
+        text: 'Internals',
+        collapsed: true,
+        items: [
+          { text: 'Architecture', link: '/architecture' },
+          { text: 'Roadmap', link: '/roadmap' },
+        ],
+      },
+    ],
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/KashifKhn/worng' },
