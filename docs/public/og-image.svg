@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A1B26;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2B2D42;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E84545;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F5A623;stop-opacity:1" />
+    </linearGradient>
+    <!-- Noise texture overlay -->
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="overlay" result="blend"/>
+      <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid lines -->
+  <g stroke="#E84545" stroke-width="0.5" opacity="0.06">
+    <line x1="0" y1="105" x2="1200" y2="105"/>
+    <line x1="0" y1="210" x2="1200" y2="210"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="525" x2="1200" y2="525"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+  </g>
+
+  <!-- Left red accent bar -->
+  <rect x="0" y="0" width="8" height="630" fill="#E84545"/>
+
+  <!-- Top-right decorative code snippet -->
+  <g opacity="0.12" font-family="'JetBrains Mono', monospace" font-size="15" fill="#E2E2E8">
+    <text x="720" y="90">// input ~"Hello, World!"</text>
+    <text x="720" y="115">This line is ignored.</text>
+    <text x="720" y="140">/* x = x - 1 */</text>
+    <text x="720" y="165">call add(a, b) }</text>
+    <text x="720" y="190">  discard a - b</text>
+    <text x="720" y="215">{</text>
+  </g>
+
+  <!-- Main logo / wordmark -->
+  <!-- W -->
+  <text x="80" y="320" font-family="'JetBrains Mono', Georgia, serif" font-size="220" font-weight="700" fill="url(#titleGrad)" letter-spacing="-4">WORNG</text>
+
+  <!-- Tagline -->
+  <text x="82" y="385" font-family="'JetBrains Mono', monospace" font-size="28" fill="#E2E2E8" opacity="0.9">Wrong by design. Right by accident.</text>
+
+  <!-- Sub-description pills -->
+  <rect x="82" y="420" width="220" height="36" rx="18" fill="#E84545" opacity="0.15"/>
+  <text x="192" y="443" font-family="'JetBrains Mono', monospace" font-size="14" fill="#E84545" text-anchor="middle">comments are code</text>
+
+  <rect x="316" y="420" width="220" height="36" rx="18" fill="#F5A623" opacity="0.12"/>
+  <text x="426" y="443" font-family="'JetBrains Mono', monospace" font-size="14" fill="#F5A623" text-anchor="middle">bottom-to-top execution</text>
+
+  <rect x="550" y="420" width="200" height="36" rx="18" fill="#E84545" opacity="0.15"/>
+  <text x="650" y="443" font-family="'JetBrains Mono', monospace" font-size="14" fill="#E84545" text-anchor="middle">+ means subtract</text>
+
+  <!-- Bottom domain -->
+  <text x="82" y="568" font-family="'JetBrains Mono', monospace" font-size="20" fill="#E2E2E8" opacity="0.5">worng.kashifkhan.dev</text>
+
+  <!-- Bottom right — language badge -->
+  <rect x="980" y="540" width="160" height="40" rx="8" fill="#E84545" opacity="0.2"/>
+  <text x="1060" y="565" font-family="'JetBrains Mono', monospace" font-size="14" fill="#E84545" text-anchor="middle" font-weight="600">Go Interpreter</text>
+</svg>
