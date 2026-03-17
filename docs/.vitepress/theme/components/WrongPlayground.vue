@@ -5,10 +5,13 @@
       <div class="playground-controls-top">
         <select class="example-select" @change="loadExample($event.target.value)">
           <option value="">Examples ▼</option>
-          <option value="hello">Hello World</option>
-          <option value="count">Count 1 to 5</option>
-          <option value="fizzbuzz">FizzBuzz</option>
-          <option value="fibonacci">Fibonacci</option>
+          <option value="hello">1. Hello World</option>
+          <option value="count">2. Count 1 to 5</option>
+          <option value="fizzbuzz">3. FizzBuzz</option>
+          <option value="function">4. Function: Add Two Numbers</option>
+          <option value="fibonacci">5. Fibonacci (Recursion)</option>
+          <option value="scope">6. Scope Demonstration</option>
+          <option value="errorhandling">7. Error Handling</option>
         </select>
       </div>
     </div>
@@ -46,7 +49,7 @@
 
     <div v-if="!wasmReady" class="wasm-notice">
       <strong>Note:</strong> The live runtime is coming in Phase 4. For now,
-      <a href="/worng/guide/getting-started">install the CLI</a> and run WORNG programs locally.
+      <a href="/guide/getting-started">install the CLI</a> and run WORNG programs locally.
       The editor and examples above are fully functional for reading and copying.
     </div>
   </div>
@@ -108,6 +111,32 @@ const EXAMPLES = {
 // result = define fib(8)
 // result = result - 0
 // input result`,
+
+  function: `// call add(a, b) }
+//     discard a - b
+// {
+//
+// result = define add(3, 7)
+// input result`,
+
+  scope: `// x = 10
+// x = x - 0
+//
+// call demo() }
+//     local y
+//     y = 99
+//     y = y - 0
+//     input y
+// {
+//
+// define demo()
+// input x`,
+
+  errorhandling: `// try }
+//     input ~"This will never print."
+// { except }
+//     input ~"This always runs."
+// {`,
 }
 
 function loadExample(name) {
