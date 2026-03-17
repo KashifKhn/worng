@@ -1,5 +1,8 @@
 {
+  "buildCommand": "cd docs && npm install && npm run build",
   "outputDirectory": "docs/.vitepress/dist",
+  "installCommand": "echo 'install handled in buildCommand'",
+  "framework": null,
   "headers": [
     {
       "source": "/(.*)",
