@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "docs/.vitepress/dist",
   "headers": [
     {
       "source": "/(.*)",
