@@ -34,9 +34,27 @@ Output: `Hello, World!`
 
 ## Install
 
+**Linux / macOS**
+```bash
+curl -fsSL https://raw.githubusercontent.com/KashifKhn/worng/main/install.sh | sh
+```
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/KashifKhn/worng/main/install.ps1 | iex
+```
+
+**Windows (CMD)**
+```bat
+curl -fsSL https://raw.githubusercontent.com/KashifKhn/worng/main/install.bat -o install.bat && install.bat && del install.bat
+```
+
+**go install**
 ```bash
 go install github.com/KashifKhn/worng/cmd/worng@latest
 ```
+
+Optional flags: `--version 0.1.0`, `--no-modify-path`
 
 ## Usage
 
