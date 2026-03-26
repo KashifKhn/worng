@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/KashifKhn/worng/internal/jsonrpc"
@@ -355,6 +356,7 @@ func TestShutdownBlocksFurtherRequests(t *testing.T) {
 }
 
 type capture struct {
+	mu   sync.Mutex
 	msgs []jsonrpc.Message
 }
 
@@ -367,12 +369,16 @@ func (c *capture) send(v interface{}) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
+	c.mu.Lock()
 	c.msgs = append(c.msgs, m)
+	c.mu.Unlock()
 	return nil
 }
 
 func (c *capture) lastResponse(tb testing.TB) jsonrpc.Message {
 	tb.Helper()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i := len(c.msgs) - 1; i >= 0; i-- {
 		if c.msgs[i].IsResponse() {
 			return c.msgs[i]
@@ -384,6 +390,8 @@ func (c *capture) lastResponse(tb testing.TB) jsonrpc.Message {
 
 func (c *capture) lastNotification(tb testing.TB, method string) jsonrpc.Message {
 	tb.Helper()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i := len(c.msgs) - 1; i >= 0; i-- {
 		if c.msgs[i].IsNotification() && c.msgs[i].Method == method {
 			return c.msgs[i]
