@@ -45,7 +45,9 @@ WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete
 - `wronglib` standard library
 - CLI: `worng run`, `worng check`, `worng fmt`, `worng version`
 - REPL: `worng run --repl`
-- Encouraging error messages (W1001–W1009)
+- Encouraging structured diagnostics (W1001–W1014) with detail/hint fields
+- CLI diagnostic output modes: pretty text and `--json`
+- Parser diagnostic limits via `--max-errors`
 - Full golden test suite (hello, numbers, strings, booleans, if/else, while, for, variables, functions, scope, fizzbuzz, fibonacci, arrays, error messages)
 - Fuzz tests for lexer, parser, interpreter
 
