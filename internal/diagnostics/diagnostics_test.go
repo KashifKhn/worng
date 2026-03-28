@@ -127,6 +127,11 @@ func TestDiagnosticCodesAreUnique(t *testing.T) {
 		SyntaxError,
 		FileNotFound,
 		InfiniteLoop,
+		IllegalToken,
+		UnterminatedString,
+		UnterminatedBlockComment,
+		InvalidExecutionOrder,
+		InvalidMaxErrors,
 	}
 
 	seen := map[int]string{}
@@ -151,6 +156,11 @@ func TestDiagnosticKeysAreNonEmpty(t *testing.T) {
 		SyntaxError,
 		FileNotFound,
 		InfiniteLoop,
+		IllegalToken,
+		UnterminatedString,
+		UnterminatedBlockComment,
+		InvalidExecutionOrder,
+		InvalidMaxErrors,
 	}
 
 	for _, d := range all {
@@ -180,6 +190,11 @@ func TestDiagnosticCodesMatchExpected(t *testing.T) {
 		{SyntaxError, 1007, "syntax_error"},
 		{FileNotFound, 1008, "file_not_found"},
 		{InfiniteLoop, 1009, "infinite_loop"},
+		{IllegalToken, 1010, "illegal_token"},
+		{UnterminatedString, 1011, "unterminated_string"},
+		{UnterminatedBlockComment, 1012, "unterminated_block_comment"},
+		{InvalidExecutionOrder, 1013, "invalid_execution_order"},
+		{InvalidMaxErrors, 1014, "invalid_max_errors"},
 	}
 
 	for _, tc := range tests {
@@ -200,7 +215,9 @@ func TestAllDiagnosticsAreErrors(t *testing.T) {
 
 	all := []Diagnostic{
 		UndefinedVariable, TypeMismatch, DivisionByZero, StackOverflow,
-		IndexOutOfBounds, ModuleNotFound, SyntaxError, FileNotFound, InfiniteLoop,
+		IndexOutOfBounds, ModuleNotFound, SyntaxError, FileNotFound, InfiniteLoop, IllegalToken,
+		UnterminatedString, UnterminatedBlockComment,
+		InvalidExecutionOrder, InvalidMaxErrors,
 	}
 
 	for _, d := range all {
@@ -229,6 +246,11 @@ func TestErrorCodeFormattedWithFourDigits(t *testing.T) {
 		{SyntaxError, "[W1007]"},
 		{FileNotFound, "[W1008]"},
 		{InfiniteLoop, "[W1009]"},
+		{IllegalToken, "[W1010]"},
+		{UnterminatedString, "[W1011]"},
+		{UnterminatedBlockComment, "[W1012]"},
+		{InvalidExecutionOrder, "[W1013]"},
+		{InvalidMaxErrors, "[W1014]"},
 	}
 
 	for _, tc := range tests {
@@ -249,7 +271,82 @@ func TestPositionZeroValue(t *testing.T) {
 	t.Parallel()
 
 	var p Position
-	if p.File != "" || p.Line != 0 || p.Column != 0 {
+	if p.File != "" || p.Line != 0 || p.Column != 0 || p.EndLine != 0 || p.EndColumn != 0 {
 		t.Fatalf("zero Position = %+v, want all zero", p)
+	}
+}
+
+func TestErrorIncludesDetailAndHint(t *testing.T) {
+	t.Parallel()
+
+	e := NewUnexpectedToken(Position{File: "main.wrg", Line: 2, Column: 5}, "}")
+	msg := e.Error()
+
+	if !strings.Contains(msg, "detail:") {
+		t.Fatalf("Error() = %q, expected detail segment", msg)
+	}
+	if !strings.Contains(msg, "hint:") {
+		t.Fatalf("Error() = %q, expected hint segment", msg)
+	}
+}
+
+func TestNewExpectedTokenCarriesExpectedAndFound(t *testing.T) {
+	t.Parallel()
+
+	e := NewExpectedToken(Position{Line: 1, Column: 1}, []string{")", "identifier"}, "<eof>")
+	if e.Diag.Code != SyntaxError.Code {
+		t.Fatalf("Code = %d, want %d", e.Diag.Code, SyntaxError.Code)
+	}
+	if len(e.Expected) != 2 {
+		t.Fatalf("Expected len = %d, want 2", len(e.Expected))
+	}
+	if e.Found != "<eof>" {
+		t.Fatalf("Found = %q, want <eof>", e.Found)
+	}
+}
+
+func TestErrorListRendersMultipleLines(t *testing.T) {
+	t.Parallel()
+
+	errList := NewErrorList([]error{
+		New(SyntaxError, Position{File: "a.wrg", Line: 1, Column: 1}),
+		New(IllegalToken, Position{File: "a.wrg", Line: 2, Column: 2}),
+	})
+	msg := errList.Error()
+	if !strings.Contains(msg, "[W1007]") || !strings.Contains(msg, "[W1010]") {
+		t.Fatalf("Error() = %q, expected both diagnostic codes", msg)
+	}
+	if !strings.Contains(msg, "\n") {
+		t.Fatalf("Error() = %q, expected newline-separated diagnostics", msg)
+	}
+}
+
+func TestNewUnterminatedConstructors(t *testing.T) {
+	t.Parallel()
+
+	str := NewUnterminatedString(Position{Line: 1, Column: 1})
+	if str.Diag.Code != UnterminatedString.Code {
+		t.Fatalf("code = %d, want %d", str.Diag.Code, UnterminatedString.Code)
+	}
+	blk := NewUnterminatedBlockComment(Position{Line: 1, Column: 1}, "/*")
+	if blk.Diag.Code != UnterminatedBlockComment.Code {
+		t.Fatalf("code = %d, want %d", blk.Diag.Code, UnterminatedBlockComment.Code)
+	}
+}
+
+func TestNewFileNotFoundAndFlagDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	fn := NewFileNotFound("missing.wrg", nil)
+	if fn.Diag.Code != FileNotFound.Code {
+		t.Fatalf("file not found code = %d, want %d", fn.Diag.Code, FileNotFound.Code)
+	}
+	ord := NewInvalidExecutionOrder("nope")
+	if ord.Diag.Code != InvalidExecutionOrder.Code {
+		t.Fatalf("invalid order code = %d, want %d", ord.Diag.Code, InvalidExecutionOrder.Code)
+	}
+	max := NewInvalidMaxErrors("abc")
+	if max.Diag.Code != InvalidMaxErrors.Code {
+		t.Fatalf("invalid max errors code = %d, want %d", max.Diag.Code, InvalidMaxErrors.Code)
 	}
 }
