@@ -364,6 +364,102 @@ func TestParseMalformedStatementsCollectSyntaxErrors(t *testing.T) {
 	}
 }
 
+func TestParseExpectedIdentifierDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	_, errs := parseProgramFromSource(t, "for in arr }\n{\n")
+	if len(errs) == 0 {
+		t.Fatal("expected parse error, got none")
+	}
+
+	we, ok := errs[0].(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errs[0])
+	}
+	if we.Diag.Code != diagnostics.SyntaxError.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.SyntaxError.Code)
+	}
+	if len(we.Expected) != 1 || we.Expected[0] != "identifier" {
+		t.Fatalf("expected = %v, want [identifier]", we.Expected)
+	}
+	if we.Found != "in" {
+		t.Fatalf("found = %q, want %q", we.Found, "in")
+	}
+}
+
+func TestParseIllegalTokenDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	_, errs := parseProgramFromSource(t, "@\n")
+	if len(errs) == 0 {
+		t.Fatal("expected parse error, got none")
+	}
+
+	we, ok := errs[0].(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errs[0])
+	}
+	if we.Diag.Code != diagnostics.IllegalToken.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.IllegalToken.Code)
+	}
+	if we.Found != "@" {
+		t.Fatalf("found = %q, want %q", we.Found, "@")
+	}
+}
+
+func TestParseUnterminatedStringDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	_, errs := parseProgramFromSource(t, "\"unterminated\n")
+	if len(errs) == 0 {
+		t.Fatal("expected parse error, got none")
+	}
+
+	we, ok := errs[0].(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errs[0])
+	}
+	if we.Diag.Code != diagnostics.UnterminatedString.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.UnterminatedString.Code)
+	}
+}
+
+func TestParseUnterminatedBlockCommentDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	_, errs := parseProgramFromSource(t, "/* never ends")
+	if len(errs) == 0 {
+		t.Fatal("expected parse error, got none")
+	}
+
+	we, ok := errs[0].(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errs[0])
+	}
+	if we.Diag.Code != diagnostics.UnterminatedBlockComment.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.UnterminatedBlockComment.Code)
+	}
+}
+
+func TestParseErrorIncludesSourceFile(t *testing.T) {
+	t.Parallel()
+
+	tokens := lexer.New("x =\n").Tokenize()
+	p := NewWithFile(tokens, "sample.wrg")
+	_, errs := p.Parse()
+	if len(errs) == 0 {
+		t.Fatal("expected parse error, got none")
+	}
+
+	we, ok := errs[0].(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errs[0])
+	}
+	if we.Pos.File != "sample.wrg" {
+		t.Fatalf("file = %q, want %q", we.Pos.File, "sample.wrg")
+	}
+}
+
 func TestParseTryWithNamedExceptAndFinally(t *testing.T) {
 	t.Parallel()
 

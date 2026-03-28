@@ -7,6 +7,7 @@ package parser
 
 import (
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
@@ -14,13 +15,18 @@ import (
 )
 
 type Parser struct {
-	tokens []lexer.Token
-	pos    int
-	errors []error
+	tokens     []lexer.Token
+	pos        int
+	errors     []error
+	sourceFile string
 }
 
 func New(tokens []lexer.Token) *Parser {
-	return &Parser{tokens: tokens}
+	return NewWithFile(tokens, "")
+}
+
+func NewWithFile(tokens []lexer.Token, file string) *Parser {
+	return &Parser{tokens: tokens, sourceFile: file}
 }
 
 func (p *Parser) Parse() (*ast.ProgramNode, []error) {
@@ -30,6 +36,11 @@ func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_EOF) {
 			break
+		}
+		if p.at(lexer.TOKEN_ILLEGAL) {
+			p.addIllegalTokenError(p.cur())
+			p.next()
+			continue
 		}
 
 		stmt := p.parseStatement()
@@ -157,7 +168,6 @@ func (p *Parser) parseForStmt() ast.Statement {
 	tok := p.next()
 	nameTok, ok := p.expectIdent()
 	if !ok {
-		p.addSyntaxError(tok)
 		p.syncToNextLine()
 		return nil
 	}
@@ -181,7 +191,6 @@ func (p *Parser) parseMatchStmt() ast.Statement {
 	tok := p.next()
 	subject := p.parseExpression()
 	if subject == nil || !p.expect(lexer.TOKEN_LBRACE) {
-		p.addSyntaxError(tok)
 		p.syncToNextLine()
 		return nil
 	}
@@ -611,7 +620,7 @@ func (p *Parser) parsePrimary() ast.Expression {
 	case lexer.TOKEN_PRINT:
 		return p.parsePrintExpr()
 	default:
-		p.addSyntaxError(tok)
+		p.addUnexpectedToken(tok)
 		return nil
 	}
 }
@@ -693,7 +702,6 @@ func (p *Parser) parsePrintExpr() *ast.PrintNode {
 	}
 	prompt := p.parseExpression()
 	if prompt == nil {
-		p.addSyntaxError(tok)
 		return nil
 	}
 	return &ast.PrintNode{Prompt: prompt, Position: toASTPos(tok)}
@@ -719,7 +727,7 @@ func (p *Parser) parseBlockBody() *ast.BlockNode {
 		}
 	}
 
-	p.addSyntaxError(openTok)
+	p.addExpectedToken(p.cur(), lexer.TOKEN_RBRACE)
 	return nil
 }
 
@@ -743,8 +751,36 @@ func (p *Parser) syncToNextLine() {
 	}
 }
 
-func (p *Parser) addSyntaxError(tok lexer.Token) {
-	err := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{Line: tok.Line, Column: tok.Column})
+func (p *Parser) addUnexpectedToken(tok lexer.Token) {
+	err := diagnostics.NewUnexpectedToken(p.tokenPos(tok), p.foundToken(tok))
+	p.errors = append(p.errors, err)
+}
+
+func (p *Parser) addExpectedToken(tok lexer.Token, expected ...lexer.TokenType) {
+	ex := make([]string, 0, len(expected))
+	for _, t := range expected {
+		ex = append(ex, tokenLabel(t))
+	}
+	err := diagnostics.NewExpectedToken(p.tokenPos(tok), ex, p.foundToken(tok))
+	p.errors = append(p.errors, err)
+}
+
+func (p *Parser) addExpectedIdentifier(tok lexer.Token) {
+	err := diagnostics.NewExpectedToken(p.tokenPos(tok), []string{"identifier"}, p.foundToken(tok))
+	p.errors = append(p.errors, err)
+}
+
+func (p *Parser) addIllegalTokenError(tok lexer.Token) {
+	pos := p.tokenPos(tok)
+	var err *diagnostics.WorngError
+	switch tok.Literal {
+	case `"`, `'`, "~":
+		err = diagnostics.NewUnterminatedString(pos)
+	case "/*", "!*":
+		err = diagnostics.NewUnterminatedBlockComment(pos, tok.Literal)
+	default:
+		err = diagnostics.NewIllegalToken(pos, p.foundToken(tok))
+	}
 	p.errors = append(p.errors, err)
 }
 
@@ -753,7 +789,7 @@ func (p *Parser) expect(t lexer.TokenType) bool {
 		p.next()
 		return true
 	}
-	p.addSyntaxError(p.cur())
+	p.addExpectedToken(p.cur(), t)
 	return false
 }
 
@@ -761,8 +797,93 @@ func (p *Parser) expectIdent() (lexer.Token, bool) {
 	if p.at(lexer.TOKEN_IDENT) {
 		return p.next(), true
 	}
-	p.addSyntaxError(p.cur())
+	p.addExpectedIdentifier(p.cur())
 	return lexer.Token{}, false
+}
+
+func (p *Parser) tokenPos(tok lexer.Token) diagnostics.Position {
+	width := utf8.RuneCountInString(tok.Literal)
+	if width <= 0 {
+		width = 1
+	}
+	endCol := tok.Column + width - 1
+	if endCol < tok.Column {
+		endCol = tok.Column
+	}
+	return diagnostics.Position{
+		File:      p.sourceFile,
+		Line:      tok.Line,
+		Column:    tok.Column,
+		EndLine:   tok.Line,
+		EndColumn: endCol,
+	}
+}
+
+func (p *Parser) foundToken(tok lexer.Token) string {
+	if tok.Type == lexer.TOKEN_EOF {
+		return "<eof>"
+	}
+	if tok.Literal != "" {
+		return tok.Literal
+	}
+	return tokenLabel(tok.Type)
+}
+
+func tokenLabel(t lexer.TokenType) string {
+	switch t {
+	case lexer.TOKEN_IDENT:
+		return "identifier"
+	case lexer.TOKEN_NUMBER:
+		return "number"
+	case lexer.TOKEN_STRING:
+		return "string"
+	case lexer.TOKEN_RAW_STRING:
+		return "raw string"
+	case lexer.TOKEN_ASSIGN:
+		return "="
+	case lexer.TOKEN_LPAREN:
+		return "("
+	case lexer.TOKEN_RPAREN:
+		return ")"
+	case lexer.TOKEN_LBRACE:
+		return "}"
+	case lexer.TOKEN_RBRACE:
+		return "{"
+	case lexer.TOKEN_LBRACKET:
+		return "["
+	case lexer.TOKEN_RBRACKET:
+		return "]"
+	case lexer.TOKEN_COMMA:
+		return ","
+	case lexer.TOKEN_DOT:
+		return "."
+	case lexer.TOKEN_IF:
+		return "if"
+	case lexer.TOKEN_ELSE:
+		return "else"
+	case lexer.TOKEN_WHILE:
+		return "while"
+	case lexer.TOKEN_FOR:
+		return "for"
+	case lexer.TOKEN_IN:
+		return "in"
+	case lexer.TOKEN_CALL:
+		return "call"
+	case lexer.TOKEN_DEFINE:
+		return "define"
+	case lexer.TOKEN_RETURN:
+		return "return"
+	case lexer.TOKEN_DISCARD:
+		return "discard"
+	case lexer.TOKEN_INPUT:
+		return "input"
+	case lexer.TOKEN_PRINT:
+		return "print"
+	case lexer.TOKEN_EOF:
+		return "<eof>"
+	default:
+		return "token"
+	}
 }
 
 func (p *Parser) at(t lexer.TokenType) bool {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/KashifKhn/worng/internal/diagnostics"
 	"github.com/KashifKhn/worng/internal/interpreter"
 	"github.com/KashifKhn/worng/internal/lexer"
 	"github.com/KashifKhn/worng/internal/parser"
@@ -70,6 +71,9 @@ func TestGolden(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", expectErr)
 				}
+				if strings.Contains(expectErr, ".wrg:") && !strings.Contains(err.Error(), "input.wrg:") {
+					t.Fatalf("error should include source file path: %q", err.Error())
+				}
 				if !strings.Contains(err.Error(), expectErr) {
 					t.Fatalf("error mismatch\nactual: %q\nwant substring: %q", err.Error(), expectErr)
 				}
@@ -94,10 +98,11 @@ func runGoldenCase(mem vfs.FS, inputPath string, order interpreter.ExecutionOrde
 
 	prepared := joinExecutableLines(lexer.Preprocess(string(data)))
 	tokens := lexer.New(prepared).Tokenize()
-	p := parser.New(tokens)
+	p := parser.NewWithFile(tokens, inputPath)
 	program, errs := p.Parse()
 	if len(errs) > 0 {
-		return "", errs[0]
+		errs = limitGoldenErrors(errs, 20)
+		return "", diagnostics.NewErrorList(errs)
 	}
 
 	var out bytes.Buffer
@@ -129,4 +134,11 @@ func joinExecutableLines(lines []string) string {
 
 func osReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
+}
+
+func limitGoldenErrors(errs []error, maxErrors int) []error {
+	if maxErrors == 0 || len(errs) <= maxErrors {
+		return errs
+	}
+	return errs[:maxErrors]
 }
