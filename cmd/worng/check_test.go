@@ -175,7 +175,11 @@ func TestCheckCommandJSONOutput(t *testing.T) {
 	if err := os.WriteFile("tmp_bad_check.wrg", []byte("// if\n"), 0644); err != nil {
 		t.Fatalf("write temp file: %v", err)
 	}
-	defer os.Remove("tmp_bad_check.wrg")
+	defer func() {
+		if err := os.Remove("tmp_bad_check.wrg"); err != nil {
+			t.Fatalf("remove temp file: %v", err)
+		}
+	}()
 
 	code := checkCommand([]string{"--json", "tmp_bad_check.wrg"})
 	_ = wOut.Close()

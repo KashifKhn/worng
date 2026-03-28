@@ -751,11 +751,6 @@ func (p *Parser) syncToNextLine() {
 	}
 }
 
-func (p *Parser) addSyntaxError(tok lexer.Token) {
-	err := diagnostics.NewUnexpectedToken(p.tokenPos(tok), p.foundToken(tok))
-	p.errors = append(p.errors, err)
-}
-
 func (p *Parser) addUnexpectedToken(tok lexer.Token) {
 	err := diagnostics.NewUnexpectedToken(p.tokenPos(tok), p.foundToken(tok))
 	p.errors = append(p.errors, err)
