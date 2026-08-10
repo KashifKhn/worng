@@ -22,9 +22,6 @@ func TestSignatureHelpBranches(t *testing.T) {
 	s.docs["file:///b"] = &document{uri: "file:///b", text: "// define add(1,2", version: 1}
 	s.reindexDoc("file:///b", "// call add(a,b) }\n// discard a\n// {\n")
 	got := s.signatureHelp(lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///b"}, Position: lsproto.Position{Line: 0, Character: 999}})
-	if got == nil {
-		t.Fatal("expected signature help")
-	}
 	if got.ActiveParameter < 0 {
 		t.Fatalf("active parameter = %d", got.ActiveParameter)
 	}

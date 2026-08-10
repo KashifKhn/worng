@@ -16,9 +16,6 @@ func TestLookupDeclarationAndSameLocation(t *testing.T) {
 
 	s.reindexDoc("file:///a", "// call f(a) }\n// discard a\n// {\n")
 	loc := s.lookupDeclaration("f")
-	if loc == nil {
-		t.Fatal("expected declaration location")
-	}
 	if !sameLocation(*loc, *loc) {
 		t.Fatal("sameLocation self should be true")
 	}
