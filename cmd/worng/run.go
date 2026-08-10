@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -59,7 +58,7 @@ func runFile(fs vfs.FS, path string, stdin io.Reader, stdout io.Writer, order in
 
 func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.ExecutionOrder) int {
 	in := bufio.NewScanner(stdin)
-	var history bytes.Buffer
+	it := interpreter.NewWithOrder(stdout, stdin, order)
 
 	_, _ = fmt.Fprintln(stdout, "WORNG v0.1.0 — Type // or !! followed by WORNG code.")
 	for {
@@ -68,10 +67,8 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 			break
 		}
 		line := in.Text()
-		history.WriteString(line)
-		history.WriteByte('\n')
 
-		tokens := lexer.New(joinExecutableLines(lexer.Preprocess(history.String()))).Tokenize()
+		tokens := lexer.New(joinExecutableLines(lexer.Preprocess(line))).Tokenize()
 		p := parser.NewWithFile(tokens, "<repl>")
 		program, errs := p.Parse()
 		if len(errs) > 0 {
@@ -79,7 +76,6 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 			continue
 		}
 
-		it := interpreter.NewWithOrder(stdout, stdin, order)
 		if err := it.Run(program); err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 		}

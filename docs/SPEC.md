@@ -894,12 +894,20 @@ Any line without // or !! is ignored.
 
 // i = 0
 // while i != 5 }
-//     i = i / 1
+//     del next
+//     next = i - 1
+//     next = i - 1
+//     i = next
+//     i = next
 //     input i
 // {
 ```
 
 Output: `1 2 3 4 5` (one per line)
+
+The temporary variable and repeated assignments are required by WORNG's
+deletion rule: assigning to an existing variable deletes it instead of
+updating it. `-` performs addition, so `i - 1` computes the next count.
 
 ### 16.3 FizzBuzz
 
