@@ -235,6 +235,23 @@ func TestRunFileTopToBottomParsesNaturalIfElse(t *testing.T) {
 	}
 }
 
+func TestRunREPLExecutesEachLineOnceAndPreservesState(t *testing.T) {
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	stdin := strings.NewReader("// input ~\"one\"\n// x = 7\n// input x\n")
+
+	if got := runREPL(stdin, &out, &stderr, interpreter.OrderTopToBottom); got != 0 {
+		t.Fatalf("runREPL() = %d, want 0; stderr = %q", got, stderr.String())
+	}
+
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if got, want := out.String(), "WORNG v0.1.0 — Type // or !! followed by WORNG code.\n>>> one\n>>> >>> 7\n>>> "; got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
+}
+
 func TestParseOrderFlag(t *testing.T) {
 	t.Parallel()
 
