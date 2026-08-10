@@ -2,7 +2,7 @@ BIN       := worng
 MODULE    := github.com/KashifKhn/worng
 WASM_OUT  := playground/worng.wasm
 
-.PHONY: build test test-unit test-golden test-fuzz test-fuzz-long test-coverage generate fmt lint clean wasm install
+.PHONY: build test test-unit test-golden test-fuzz test-fuzz-long test-coverage generate tree-sitter-generate tree-sitter-test fmt lint clean wasm install
 
 build:
 	go build -o $(BIN) ./cmd/worng
@@ -28,9 +28,13 @@ test-fuzz-long:
 test-coverage:
 	go test ./... -race -coverprofile=coverage.out
 
-generate:
-	@echo "No code generation in this project."
-	@echo "LSP protocol types (internal/lsp/lsproto) will be generated in Phase 2."
+generate: tree-sitter-generate
+
+tree-sitter-generate:
+	cd tree-sitter-worng && npx --yes tree-sitter-cli generate
+
+tree-sitter-test:
+	cd tree-sitter-worng && npx --yes tree-sitter-cli test
 
 fmt:
 	gofmt -w .

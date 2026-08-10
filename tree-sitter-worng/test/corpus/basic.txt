@@ -1,0 +1,174 @@
+==================
+Executable lines
+==================
+// input ~"hello"
+!! x = 1
+
+---
+
+(source_file
+  (statement_line
+    (comment_marker)
+    (input_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (raw_string
+                            (string)))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      name: (identifier)
+      value: (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (number))))))))))))
+    (newline)))
+
+==================
+Executable block comments
+==================
+/*
+input ~"block"
+*/
+---
+
+(source_file
+  (block_comment
+    (newline)
+    (block_statement
+      (input_statement
+        (expression
+          (logical_or
+            (logical_and
+              (not_expression
+                (is_expression
+                  (comparison
+                    (term
+                      (factor
+                        (unary
+                          (primary
+                            (raw_string
+                              (string)))))))))))))
+      (newline))))
+
+==================
+Inverted blocks
+==================
+// if false }
+//     input ~"yes"
+// {
+
+---
+
+(source_file
+  (statement_line
+    (comment_marker)
+    (if_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (boolean)))))))))))
+      (open_block)
+      (newline)
+      (statement_line
+        (comment_marker)
+        (input_statement
+          (expression
+            (logical_or
+              (logical_and
+                (not_expression
+                  (is_expression
+                    (comparison
+                      (term
+                        (factor
+                          (unary
+                            (primary
+                              (raw_string
+                                (string)))))))))))))
+        (newline))
+      (close_block
+        (comment_marker)))
+    (newline)))
+
+==================
+Ignored lines and arrays
+==================
+This line is decoration.
+// input [1, 2, 3]
+
+---
+
+(source_file
+  (ignored_line
+    (newline))
+  (statement_line
+    (comment_marker)
+    (input_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (array
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))))))))))))))
+    (newline)))
