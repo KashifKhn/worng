@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/lexer"
@@ -17,10 +19,10 @@ type parseResult struct {
 	errs    []error
 }
 
-func parseProgram(source string) parseResult {
+func parseProgram(file, source string) parseResult {
 	lines := lexer.Preprocess(source)
 	tokens := lexer.New(joinLines(lines)).Tokenize()
-	p := parser.New(tokens)
+	p := parser.NewWithFile(tokens, file)
 	program, errs := p.Parse()
 	return parseResult{program: program, errs: errs}
 }
@@ -55,30 +57,92 @@ func wordAt(text string, pos lsproto.Position) (string, lsproto.Range) {
 	if line == "" {
 		return "", lsproto.Range{}
 	}
-	if pos.Character < 0 {
-		pos.Character = 0
-	}
-	if pos.Character >= len(line) {
-		pos.Character = len(line) - 1
-	}
-	if pos.Character < 0 {
+	runes := []rune(line)
+	if len(runes) == 0 {
 		return "", lsproto.Range{}
 	}
-	if !isWordPart(rune(line[pos.Character])) {
+	idx := utf16CharToRuneIndex(line, pos.Character)
+	if idx >= len(runes) {
+		idx = len(runes) - 1
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if !isWordPart(runes[idx]) {
 		return "", lsproto.Range{}
 	}
-	start := pos.Character
-	for start > 0 && isWordPart(rune(line[start-1])) {
+	start := idx
+	for start > 0 && isWordPart(runes[start-1]) {
 		start--
 	}
-	end := pos.Character
-	for end+1 < len(line) && isWordPart(rune(line[end+1])) {
+	end := idx
+	for end+1 < len(runes) && isWordPart(runes[end+1]) {
 		end++
 	}
-	return line[start : end+1], lsproto.Range{
-		Start: lsproto.Position{Line: pos.Line, Character: start},
-		End:   lsproto.Position{Line: pos.Line, Character: end + 1},
+	startChar := runeIndexToUTF16(runes, start)
+	endChar := runeIndexToUTF16(runes, end+1)
+	return string(runes[start : end+1]), lsproto.Range{
+		Start: lsproto.Position{Line: pos.Line, Character: startChar},
+		End:   lsproto.Position{Line: pos.Line, Character: endChar},
 	}
+}
+
+func utf16CharToRuneIndex(line string, char int) int {
+	if char <= 0 {
+		return 0
+	}
+	runes := []rune(line)
+	units := 0
+	for i, r := range runes {
+		w := utf16Width(r)
+		if units+w > char {
+			return i
+		}
+		units += w
+		if units == char {
+			return i + 1
+		}
+	}
+	return len(runes)
+}
+
+func runeIndexToUTF16(runes []rune, idx int) int {
+	if idx <= 0 {
+		return 0
+	}
+	if idx > len(runes) {
+		idx = len(runes)
+	}
+	units := 0
+	for i := 0; i < idx; i++ {
+		units += utf16Width(runes[i])
+	}
+	return units
+}
+
+func utf16CharToByteIndex(line string, char int) int {
+	if char <= 0 {
+		return 0
+	}
+	units := 0
+	for i, r := range line {
+		w := utf16Width(r)
+		if units+w > char {
+			return i
+		}
+		units += w
+		if units == char {
+			return i + utf8.RuneLen(r)
+		}
+	}
+	return len(line)
+}
+
+func utf16Width(r rune) int {
+	if utf16.RuneLen(r) == 2 {
+		return 2
+	}
+	return 1
 }
 
 func isWordStart(r rune) bool {

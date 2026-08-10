@@ -170,11 +170,17 @@ type PublishDiagnosticsParams struct {
 }
 
 type Diagnostic struct {
-	Range    Range  `json:"range"`
-	Severity int    `json:"severity,omitempty"`
-	Code     string `json:"code,omitempty"`
-	Source   string `json:"source,omitempty"`
-	Message  string `json:"message"`
+	Range           Range                  `json:"range"`
+	Severity        int                    `json:"severity,omitempty"`
+	Code            string                 `json:"code,omitempty"`
+	CodeDescription *CodeDescription       `json:"codeDescription,omitempty"`
+	Source          string                 `json:"source,omitempty"`
+	Message         string                 `json:"message"`
+	Data            map[string]interface{} `json:"data,omitempty"`
+}
+
+type CodeDescription struct {
+	Href string `json:"href"`
 }
 
 const (

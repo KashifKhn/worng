@@ -91,6 +91,12 @@ func TestNewServerDefaults(t *testing.T) {
 	if len(s.keywordDoc) == 0 {
 		t.Fatal("keyword docs should be populated")
 	}
+	if len(s.operatorDoc) == 0 {
+		t.Fatal("operator docs should be populated")
+	}
+	if len(s.wronglibDoc) == 0 {
+		t.Fatal("wronglib docs should be populated")
+	}
 }
 
 func TestScheduleDiagnosticsDebouncedAndReplaceTimer(t *testing.T) {
@@ -133,6 +139,12 @@ func TestHoverBranches(t *testing.T) {
 	h2 := s.hover(lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///b"}, Position: lsproto.Position{Line: 0, Character: 5}})
 	if h2 == nil {
 		t.Fatal("hover for wronglib should not be nil")
+	}
+
+	s.docs["file:///c"] = &document{uri: "file:///c", text: "// input 1 + 2\n", version: 1}
+	h3 := s.hover(lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///c"}, Position: lsproto.Position{Line: 0, Character: 0}})
+	if h3 != nil {
+		t.Fatalf("hover on comment marker should be nil, got %#v", h3)
 	}
 }
 

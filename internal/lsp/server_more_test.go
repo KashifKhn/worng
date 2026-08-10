@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/KashifKhn/worng/internal/diagnostics"
 	"github.com/KashifKhn/worng/internal/jsonrpc"
 	"github.com/KashifKhn/worng/internal/lsp/lsproto"
 )
@@ -175,6 +176,27 @@ func TestPublishDiagnosticsDirect(t *testing.T) {
 	}
 }
 
+func TestDiagnosticDataAndSpecRefHelpers(t *testing.T) {
+	t.Parallel()
+
+	we := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{Line: 1, Column: 3})
+	we.Detail = "unexpected token"
+	we.Hint = "close the block"
+	we.Expected = []string{"}"}
+	we.Found = "<eof>"
+
+	data := diagnosticData(we)
+	if data["key"] != diagnostics.SyntaxError.Key {
+		t.Fatalf("data key = %v, want %q", data["key"], diagnostics.SyntaxError.Key)
+	}
+	if data["found"] != "<eof>" {
+		t.Fatalf("data found = %v, want <eof>", data["found"])
+	}
+	if href := specRefURL(diagnostics.SyntaxError.Key); !strings.Contains(href, "SPEC.md") {
+		t.Fatalf("specRefURL = %q, want SPEC.md link", href)
+	}
+}
+
 func TestWordAtBounds(t *testing.T) {
 	t.Parallel()
 
@@ -186,6 +208,31 @@ func TestWordAtBounds(t *testing.T) {
 	word, _ = wordAt(text, lsproto.Position{Line: 0, Character: -1})
 	if word != "alpha" {
 		t.Fatalf("word = %q, want alpha", word)
+	}
+}
+
+func TestWordAtUTF16Position(t *testing.T) {
+	t.Parallel()
+
+	text := "🙂alpha"
+	word, r := wordAt(text, lsproto.Position{Line: 0, Character: 2})
+	if word != "alpha" {
+		t.Fatalf("word = %q, want alpha", word)
+	}
+	if r.Start.Character != 2 {
+		t.Fatalf("start char = %d, want 2", r.Start.Character)
+	}
+}
+
+func TestUTF16CharToByteIndex(t *testing.T) {
+	t.Parallel()
+
+	line := "🙂x"
+	if got := utf16CharToByteIndex(line, 0); got != 0 {
+		t.Fatalf("idx(0) = %d, want 0", got)
+	}
+	if got := utf16CharToByteIndex(line, 2); got != len("🙂") {
+		t.Fatalf("idx(2) = %d, want %d", got, len("🙂"))
 	}
 }
 

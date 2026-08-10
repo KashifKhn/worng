@@ -15,10 +15,11 @@ func (s *Server) signatureHelp(p lsproto.TextDocumentPositionParams) *lsproto.Si
 	if line == "" {
 		return nil
 	}
-	if p.Position.Character > len(line) {
-		p.Position.Character = len(line)
+	byteIdx := utf16CharToByteIndex(line, p.Position.Character)
+	if byteIdx > len(line) {
+		byteIdx = len(line)
 	}
-	left := line[:p.Position.Character]
+	left := line[:byteIdx]
 	idx := strings.LastIndex(left, "define ")
 	if idx < 0 {
 		return nil

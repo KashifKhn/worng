@@ -132,6 +132,49 @@ func TestDidOpenPublishesSyntaxDiagnostic(t *testing.T) {
 	if p.Diagnostics[0].Severity != lsproto.DiagnosticSeverityError {
 		t.Fatalf("severity = %d, want %d", p.Diagnostics[0].Severity, lsproto.DiagnosticSeverityError)
 	}
+	if p.Diagnostics[0].Code == "" {
+		t.Fatal("expected diagnostic code")
+	}
+	if p.Diagnostics[0].CodeDescription == nil || p.Diagnostics[0].CodeDescription.Href == "" {
+		t.Fatal("expected codeDescription href")
+	}
+	if p.Diagnostics[0].Data == nil {
+		t.Fatal("expected diagnostic data payload")
+	}
+	if _, ok := p.Diagnostics[0].Data["key"]; !ok {
+		t.Fatalf("diagnostic data missing key: %#v", p.Diagnostics[0].Data)
+	}
+	if p.Diagnostics[0].Range.Start.Character != 2 {
+		t.Fatalf("range start char = %d, want 2", p.Diagnostics[0].Range.Start.Character)
+	}
+	if p.Diagnostics[0].Range.End.Character <= p.Diagnostics[0].Range.Start.Character {
+		t.Fatalf("invalid diagnostic range: %#v", p.Diagnostics[0].Range)
+	}
+	if p.Diagnostics[0].Range.Start.Line != 0 {
+		t.Fatalf("range start line = %d, want 0", p.Diagnostics[0].Range.Start.Line)
+	}
+}
+
+func TestDidOpenDiagnosticMessageCarriesDetail(t *testing.T) {
+	t.Parallel()
+
+	tx := &capture{}
+	s := initialized(t, tx)
+
+	open := lsproto.DidOpenTextDocumentParams{TextDocument: lsproto.TextDocumentItem{URI: "file:///a.wrg", LanguageID: "worng", Version: 1, Text: "// if\n"}}
+	if err := s.Handle(note(t, "textDocument/didOpen", open)); err != nil {
+		t.Fatalf("didOpen error: %v", err)
+	}
+
+	pub := tx.lastNotification(t, "textDocument/publishDiagnostics")
+	var p lsproto.PublishDiagnosticsParams
+	decodeParams(t, pub.Params, &p)
+	if len(p.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics, got none")
+	}
+	if !strings.Contains(p.Diagnostics[0].Message, "\n") {
+		t.Fatalf("diagnostic message should include detail newline, got %q", p.Diagnostics[0].Message)
+	}
 }
 
 func TestDidChangeClearsDiagnosticsOnFix(t *testing.T) {
@@ -211,8 +254,89 @@ func TestHoverKeyword(t *testing.T) {
 	}
 	var h lsproto.Hover
 	decodeResult(t, resp.Result, &h)
-	if !strings.Contains(strings.ToLower(h.Contents.Value), "false") {
-		t.Fatalf("hover value = %q, want inversion content", h.Contents.Value)
+	value := strings.ToLower(h.Contents.Value)
+	if !strings.Contains(value, "written:") || !strings.Contains(value, "actual in worng:") {
+		t.Fatalf("hover value = %q, want written/actual sections", h.Contents.Value)
+	}
+}
+
+func TestHoverOperator(t *testing.T) {
+	t.Parallel()
+
+	tx := &capture{}
+	s := initializedWithDoc(t, tx, "file:///op.wrg", "// input 1 + 2\n")
+	reqP := lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///op.wrg"}, Position: lsproto.Position{Line: 0, Character: 11}}
+	if err := s.Handle(req(t, 60, "textDocument/hover", reqP)); err != nil {
+		t.Fatalf("hover handle error: %v", err)
+	}
+	resp := tx.lastResponse(t)
+	if resp.Error != nil {
+		t.Fatalf("hover response error: %#v", resp.Error)
+	}
+	var h lsproto.Hover
+	decodeResult(t, resp.Result, &h)
+	if !strings.Contains(h.Contents.Value, "`+` operator") {
+		t.Fatalf("hover value = %q, want operator title", h.Contents.Value)
+	}
+}
+
+func TestHoverBraceOperator(t *testing.T) {
+	t.Parallel()
+
+	tx := &capture{}
+	s := initializedWithDoc(t, tx, "file:///brace.wrg", "// if false }\n// input ~\"x\"\n// {\n")
+	reqP := lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///brace.wrg"}, Position: lsproto.Position{Line: 0, Character: 12}}
+	if err := s.Handle(req(t, 62, "textDocument/hover", reqP)); err != nil {
+		t.Fatalf("hover handle error: %v", err)
+	}
+	resp := tx.lastResponse(t)
+	if resp.Error != nil {
+		t.Fatalf("hover response error: %#v", resp.Error)
+	}
+	var h lsproto.Hover
+	decodeResult(t, resp.Result, &h)
+	if !strings.Contains(h.Contents.Value, "`}` token") {
+		t.Fatalf("hover value = %q, want brace token hover", h.Contents.Value)
+	}
+}
+
+func TestHoverFunctionSymbol(t *testing.T) {
+	t.Parallel()
+
+	tx := &capture{}
+	s := initializedWithDoc(t, tx, "file:///f.wrg", "// call add(a, b) }\n// discard a\n// {\n// define add(1, 2)\n")
+	reqP := lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///f.wrg"}, Position: lsproto.Position{Line: 3, Character: 11}}
+	if err := s.Handle(req(t, 61, "textDocument/hover", reqP)); err != nil {
+		t.Fatalf("hover handle error: %v", err)
+	}
+	resp := tx.lastResponse(t)
+	if resp.Error != nil {
+		t.Fatalf("hover response error: %#v", resp.Error)
+	}
+	var h lsproto.Hover
+	decodeResult(t, resp.Result, &h)
+	if !strings.Contains(h.Contents.Value, "Function `add(") {
+		t.Fatalf("hover value = %q, want function hover", h.Contents.Value)
+	}
+}
+
+func TestHoverWronglibFunction(t *testing.T) {
+	t.Parallel()
+
+	tx := &capture{}
+	s := initializedWithDoc(t, tx, "file:///w.wrg", "// export wronglib\n// input define wronglib.max([1,2,3])\n")
+	reqP := lsproto.TextDocumentPositionParams{TextDocument: lsproto.TextDocumentIdentifier{URI: "file:///w.wrg"}, Position: lsproto.Position{Line: 1, Character: 27}}
+	if err := s.Handle(req(t, 63, "textDocument/hover", reqP)); err != nil {
+		t.Fatalf("hover handle error: %v", err)
+	}
+	resp := tx.lastResponse(t)
+	if resp.Error != nil {
+		t.Fatalf("hover response error: %#v", resp.Error)
+	}
+	var h lsproto.Hover
+	decodeResult(t, resp.Result, &h)
+	if !strings.Contains(h.Contents.Value, "`wronglib.max(arr)`") {
+		t.Fatalf("hover value = %q, want wronglib function hover", h.Contents.Value)
 	}
 }
 

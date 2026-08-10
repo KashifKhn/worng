@@ -13,10 +13,11 @@ func (s *Server) completion(p lsproto.TextDocumentPositionParams) []lsproto.Comp
 		return nil
 	}
 	line := lineAt(doc.text, p.Position.Line)
-	if p.Position.Character > len(line) {
-		p.Position.Character = len(line)
+	byteIdx := utf16CharToByteIndex(line, p.Position.Character)
+	if byteIdx > len(line) {
+		byteIdx = len(line)
 	}
-	left := line[:p.Position.Character]
+	left := line[:byteIdx]
 	if strings.HasSuffix(left, "wronglib.") {
 		return []lsproto.CompletionItem{
 			{Label: "len", Kind: lsproto.CompletionItemKindFunction},
