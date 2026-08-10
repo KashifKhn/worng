@@ -691,18 +691,41 @@ var (
 )
 ```
 
-**`WorngError`** wraps a `Diagnostic` with source position and any format arguments:
+**`WorngError`** wraps a `Diagnostic` with source position and structured metadata:
 
 ```go
 type WorngError struct {
     Diagnostic Diagnostic
     Pos        Position
     Args       []string  // substituted into Diagnostic.Text
+    Detail     string    // technical detail
+    Hint       string    // suggested fix
+    Expected   []string  // optional parser expectation set
+    Found      string    // optional observed token/value
 }
 
 func New(d Diagnostic, pos Position, args ...string) *WorngError
-func (e *WorngError) Error() string  // formats Diagnostic.Text with Args
+func (e *WorngError) Error() string  // renders headline + optional detail/hint
 ```
+
+`Position` supports ranges for editor tooling and snippet/caret rendering:
+
+```go
+type Position struct {
+    File      string
+    Line      int
+    Column    int
+    EndLine   int
+    EndColumn int
+}
+```
+
+CLI commands `run` and `check` can emit diagnostics in two forms:
+
+- pretty text (default) with source snippet and caret
+- JSON (`--json`) for tooling and CI
+
+Both commands support `--max-errors=N` (default `20`, `0` for unlimited).
 
 ---
 
@@ -1007,9 +1030,9 @@ func runWorng(this js.Value, args []js.Value) interface{} {
 ### Commands
 
 ```
- worng run [--order=btt|ttb] <file>    Run a .wrg file
+ worng run [--order=btt|ttb] [--json] [--max-errors=N] <file>    Run a .wrg file
  worng run [--order=btt|ttb] --repl    Start interactive REPL
- worng check [--order=btt|ttb] <file>  Parse and type-check without running
+ worng check [--order=btt|ttb] [--json] [--max-errors=N] <file>  Parse and type-check without running
  worng fmt <file>           Format a .wrg file in-place
  worng version              Print version
 ```

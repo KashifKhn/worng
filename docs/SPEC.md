@@ -988,6 +988,42 @@ All WORNG runtime errors are **encouraging and positive**.
 | File not found | `"Excellent file choice! It doesn't exist, which is very WORNG of you."` |
 | Infinite loop (stop) | `"You used 'stop' — you legend. Enjoy your infinite loop."` |
 
+### 17.1 Diagnostic Structure
+
+WORNG diagnostics use a two-layer message model:
+
+- **Headline** (encouraging, positive): the canonical message for the diagnostic code.
+- **Detail** (technical): precise parser/runtime context suitable for fixing code.
+- **Hint** (actionable): one short suggestion.
+
+Each diagnostic instance also carries machine-readable fields:
+
+- `code` (stable integer, never reused)
+- `key` (stable lookup key)
+- `severity` (`error` currently)
+- `file`, `line`, `column`, `endLine`, `endColumn`
+- optional `expected` and `found`
+
+CLI output may be rendered in human format or JSON (`--json`).
+
+### 17.2 Additional Diagnostic Codes
+
+| Code | Key | Meaning |
+|------|-----|---------|
+| `W1010` | `illegal_token` | Unknown/invalid token |
+| `W1011` | `unterminated_string` | String literal not closed |
+| `W1012` | `unterminated_block_comment` | Block comment not closed |
+| `W1013` | `invalid_execution_order` | Invalid `--order` flag value |
+| `W1014` | `invalid_max_errors` | Invalid `--max-errors` flag value |
+
+### 17.3 Diagnostic Limits
+
+`worng run` and `worng check` support `--max-errors=N`:
+
+- `N > 0`: report at most `N` diagnostics.
+- `N = 0`: no limit.
+- default: `20`.
+
 ---
 
 ## 18. The WORNG Motto

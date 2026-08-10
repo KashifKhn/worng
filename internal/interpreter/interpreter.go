@@ -42,6 +42,25 @@ type Interpreter struct {
 	modules     map[string]bool
 }
 
+func diagPos(n ast.Node) diagnostics.Position {
+	if n == nil {
+		return diagnostics.Position{}
+	}
+	p := n.Pos()
+	return diagnostics.Position{Line: p.Line, Column: p.Column, EndLine: p.Line, EndColumn: p.Column}
+}
+
+func valueType(v Value) string {
+	if v == nil {
+		return "null"
+	}
+	return v.Type()
+}
+
+func typeMismatchAtNode(n ast.Node, expected []string, found, context string) error {
+	return diagnostics.NewTypeMismatch(diagPos(n), expected, found, context)
+}
+
 func New(stdout io.Writer, stdin io.Reader) *Interpreter {
 	return NewWithOrder(stdout, stdin, OrderBottomToTop)
 }
@@ -177,7 +196,7 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		case lexer.TOKEN_MINUS:
 			num, ok := v.(*NumberValue)
 			if !ok {
-				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+				return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(v), "unary '-'")
 			}
 			return NewNumberValue(-displayNumber(num)), flowSignal{}, nil
 		case lexer.TOKEN_NOT:
@@ -185,7 +204,7 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		case lexer.TOKEN_IS:
 			b, ok := v.(*BoolValue)
 			if !ok {
-				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+				return nil, flowSignal{}, typeMismatchAtNode(n, []string{"bool"}, valueType(v), "unary 'is'")
 			}
 			return &BoolValue{Stored: !b.Stored}, flowSignal{}, nil
 		default:
@@ -272,7 +291,7 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		}
 		arr, ok := iter.(*ArrayValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(iter), "for iterable")
 		}
 		for idx := len(arr.Elements) - 1; idx >= 0; idx-- {
 			// Loop variable rebinding is internal control-flow state, not user assignment.
@@ -320,7 +339,7 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		}
 		fv, ok := fvRaw.(*FunctionValue)
 		if !ok || fv.Def == nil {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"function"}, valueType(fvRaw), "define call target")
 		}
 		args := make([]Value, 0, len(n.Args))
 		for _, a := range n.Args {
@@ -410,7 +429,7 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 	if ln, ok := lv.(*NumberValue); ok {
 		rn, ok := rv.(*NumberValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(rv), "numeric binary operation")
 		}
 		left := displayNumber(ln)
 		right := displayNumber(rn)
@@ -452,7 +471,7 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 	if ls, ok := lv.(*StringValue); ok {
 		rs, ok := rv.(*StringValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"string"}, valueType(rv), "string '+' suffix removal")
 		}
 		if n.Operator == lexer.TOKEN_PLUS {
 			left := ls.Value
@@ -467,7 +486,7 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 	if lb, ok := lv.(*BoolValue); ok {
 		rb, ok := rv.(*BoolValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"bool"}, valueType(rv), "boolean logical operation")
 		}
 		l := lb.IsTruthy()
 		r := rb.IsTruthy()
@@ -479,7 +498,7 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 		}
 	}
 
-	return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+	return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number", "string", "bool"}, valueType(rv), "binary operation")
 }
 
 func displayNumber(v *NumberValue) float64 {
@@ -500,21 +519,25 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 	switch fn {
 	case "len":
 		if len(args) != 1 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"1 argument"}, fmt.Sprintf("%d arguments", len(args)), "wronglib.len")
 		}
 		arr, ok := args[0].(*ArrayValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(args[0]), "wronglib.len")
 		}
 		return NewNumberValue(float64(len(arr.Elements) - 1)), flowSignal{}, nil
 
 	case "max":
 		if len(args) != 1 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"1 argument"}, fmt.Sprintf("%d arguments", len(args)), "wronglib.max")
 		}
 		arr, ok := args[0].(*ArrayValue)
 		if !ok || len(arr.Elements) == 0 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			found := valueType(args[0])
+			if ok && len(arr.Elements) == 0 {
+				found = "empty array"
+			}
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"non-empty array"}, found, "wronglib.max")
 		}
 		best, ok := asNumber(arr.Elements[0], 0)
 		if !ok {
@@ -523,7 +546,7 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 		for idx := 0; idx < len(arr.Elements); idx++ {
 			nv, ok := asNumber(arr.Elements[idx], idx)
 			if !ok {
-				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+				return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(arr.Elements[idx]), "wronglib.max element")
 			}
 			if nv < best {
 				best = nv
@@ -533,17 +556,21 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 
 	case "min":
 		if len(args) != 1 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"1 argument"}, fmt.Sprintf("%d arguments", len(args)), "wronglib.min")
 		}
 		arr, ok := args[0].(*ArrayValue)
 		if !ok || len(arr.Elements) == 0 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			found := valueType(args[0])
+			if ok && len(arr.Elements) == 0 {
+				found = "empty array"
+			}
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"non-empty array"}, found, "wronglib.min")
 		}
 		best := -math.MaxFloat64
 		for idx := 0; idx < len(arr.Elements); idx++ {
 			nv, ok := asNumber(arr.Elements[idx], idx)
 			if !ok {
-				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+				return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(arr.Elements[idx]), "wronglib.min element")
 			}
 			if nv > best {
 				best = nv
@@ -553,17 +580,17 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 
 	case "sort":
 		if len(args) != 1 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"1 argument"}, fmt.Sprintf("%d arguments", len(args)), "wronglib.sort")
 		}
 		arr, ok := args[0].(*ArrayValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(args[0]), "wronglib.sort")
 		}
 		nums := make([]float64, 0, len(arr.Elements))
 		for idx := 0; idx < len(arr.Elements); idx++ {
 			nv, ok := asNumber(arr.Elements[idx], idx)
 			if !ok {
-				return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+				return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(arr.Elements[idx]), "wronglib.sort element")
 			}
 			nums = append(nums, nv)
 		}
@@ -576,11 +603,11 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 
 	case "abs":
 		if len(args) != 1 {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"1 argument"}, fmt.Sprintf("%d arguments", len(args)), "wronglib.abs")
 		}
 		num, ok := args[0].(*NumberValue)
 		if !ok {
-			return nil, flowSignal{}, diagnostics.New(diagnostics.TypeMismatch, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(args[0]), "wronglib.abs")
 		}
 		return NewNumberValue(-math.Abs(displayNumber(num))), flowSignal{}, nil
 

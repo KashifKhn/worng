@@ -99,7 +99,15 @@ For example, `BinaryNode{op: "+"}` performs **subtraction** at runtime. `IfNode`
 
 ### Encouraging Errors
 
-All user-facing errors go through `internal/diagnostics`. There are nine error codes (`W1001`–`W1009`), each with a positive, encouraging message. Codes are stable — never renumbered or reused between releases.
+All user-facing errors go through `internal/diagnostics`. Diagnostics now include structured position ranges and metadata for both humans and tooling (`code`, `key`, headline, technical detail, hint, optional expected/found fields).
+
+Current codes include core runtime/parser diagnostics (`W1001`–`W1009`) plus extended syntax/CLI diagnostics (`W1010`–`W1014`). Codes are stable — never renumbered or reused between releases.
+
+CLI diagnostics support:
+
+- pretty output with source snippet + caret (default)
+- JSON output via `--json`
+- parser diagnostic cap via `--max-errors=N` (default `20`, `0` for unlimited)
 
 ### The Deletion Rule
 

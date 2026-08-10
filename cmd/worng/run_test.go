@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 
@@ -24,7 +23,7 @@ func TestRunFileExecutesBottomToTopViaPreprocessPipeline(t *testing.T) {
 	mustWriteProgram(t, fs, "program.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "program.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "program.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -49,7 +48,7 @@ func TestRunFileMixedCommentStylesAllExecuteInBottomToTopOrder(t *testing.T) {
 	mustWriteProgram(t, fs, "mixed.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "mixed.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "mixed.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -66,7 +65,7 @@ func TestRunFileCRLFInputStillExecutesBottomToTop(t *testing.T) {
 	mustWriteProgram(t, fs, "crlf.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "crlf.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "crlf.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -88,7 +87,7 @@ func TestRunFileIgnoresNonExecutableLines(t *testing.T) {
 	mustWriteProgram(t, fs, "ignored.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "ignored.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "ignored.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -105,7 +104,7 @@ func TestRunFilePrintInputPipelineUsesRuntimeInversions(t *testing.T) {
 	mustWriteProgram(t, fs, "io.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "io.wrg", strings.NewReader("Alice\n"), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "io.wrg", strings.NewReader("Alice\n"), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -120,7 +119,7 @@ func TestRunFileReturnsRuntimeDiagnostic(t *testing.T) {
 	fs := vfs.NewMemFS()
 	mustWriteProgram(t, fs, "stop.wrg", "// stop\n")
 
-	err := runFile(fs, "stop.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop)
+	err := runFile(fs, "stop.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop, 20)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -140,29 +139,43 @@ func TestRunFileReturnsParseDiagnostic(t *testing.T) {
 	fs := vfs.NewMemFS()
 	mustWriteProgram(t, fs, "bad.wrg", "// if\n")
 
-	err := runFile(fs, "bad.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop)
+	err := runFile(fs, "bad.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop, 20)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-
-	we, ok := err.(*diagnostics.WorngError)
+	errList, ok := err.(*diagnostics.ErrorList)
 	if !ok {
-		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+		t.Fatalf("error type = %T, want *diagnostics.ErrorList", err)
+	}
+	if errList.Len() == 0 {
+		t.Fatal("expected non-empty diagnostics list")
+	}
+
+	we, ok := errList.Unwrap().(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errList.Unwrap())
 	}
 	if we.Diag.Code != diagnostics.SyntaxError.Code {
 		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.SyntaxError.Code)
+	}
+	if we.Pos.File != "bad.wrg" {
+		t.Fatalf("file = %q, want %q", we.Pos.File, "bad.wrg")
 	}
 }
 
 func TestRunFileMissingFileReturnsPathError(t *testing.T) {
 	t.Parallel()
 
-	err := runFile(vfs.NewMemFS(), "missing.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop)
+	err := runFile(vfs.NewMemFS(), "missing.wrg", strings.NewReader(""), &bytes.Buffer{}, interpreter.OrderBottomToTop, 20)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if _, ok := err.(*os.PathError); !ok {
-		t.Fatalf("error type = %T, want *os.PathError", err)
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+	}
+	if we.Diag.Code != diagnostics.FileNotFound.Code {
+		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.FileNotFound.Code)
 	}
 }
 
@@ -178,7 +191,7 @@ func TestRunFileTopToBottomOrderOption(t *testing.T) {
 	mustWriteProgram(t, fs, "ttb.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "ttb.wrg", strings.NewReader(""), &out, interpreter.OrderTopToBottom); err != nil {
+	if err := runFile(fs, "ttb.wrg", strings.NewReader(""), &out, interpreter.OrderTopToBottom, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -202,7 +215,7 @@ func TestRunFileDefaultBottomToTopParsesNaturalIfElse(t *testing.T) {
 	mustWriteProgram(t, fs, "ifelse.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "ifelse.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop); err != nil {
+	if err := runFile(fs, "ifelse.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -226,7 +239,7 @@ func TestRunFileTopToBottomParsesNaturalIfElse(t *testing.T) {
 	mustWriteProgram(t, fs, "ifelse-ttb.wrg", source)
 
 	var out bytes.Buffer
-	if err := runFile(fs, "ifelse-ttb.wrg", strings.NewReader(""), &out, interpreter.OrderTopToBottom); err != nil {
+	if err := runFile(fs, "ifelse-ttb.wrg", strings.NewReader(""), &out, interpreter.OrderTopToBottom, 20); err != nil {
 		t.Fatalf("runFile error: %v", err)
 	}
 
@@ -271,6 +284,76 @@ func TestParseOrderFlag(t *testing.T) {
 				t.Fatalf("order = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestParseExecutionFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		args     []string
+		wantOrd  interpreter.ExecutionOrder
+		wantJSON bool
+		wantMax  int
+		wantRest []string
+		wantErr  bool
+	}{
+		{name: "no flags", args: []string{"prog.wrg"}, wantOrd: interpreter.OrderBottomToTop, wantMax: 20, wantRest: []string{"prog.wrg"}},
+		{name: "json only", args: []string{"--json", "prog.wrg"}, wantOrd: interpreter.OrderBottomToTop, wantJSON: true, wantMax: 20, wantRest: []string{"prog.wrg"}},
+		{name: "order and json", args: []string{"--order=ttb", "--json", "prog.wrg"}, wantOrd: interpreter.OrderTopToBottom, wantJSON: true, wantMax: 20, wantRest: []string{"prog.wrg"}},
+		{name: "max errors", args: []string{"--max-errors=7", "prog.wrg"}, wantOrd: interpreter.OrderBottomToTop, wantMax: 7, wantRest: []string{"prog.wrg"}},
+		{name: "invalid max errors", args: []string{"--max-errors=abc", "prog.wrg"}, wantErr: true},
+		{name: "invalid order", args: []string{"--order=nope", "prog.wrg"}, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ord, jsonOut, maxErrs, rest, err := parseExecutionFlags(tc.args)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseExecutionFlags error: %v", err)
+			}
+			if ord != tc.wantOrd {
+				t.Fatalf("order = %q, want %q", ord, tc.wantOrd)
+			}
+			if jsonOut != tc.wantJSON {
+				t.Fatalf("json = %v, want %v", jsonOut, tc.wantJSON)
+			}
+			if maxErrs != tc.wantMax {
+				t.Fatalf("max errors = %d, want %d", maxErrs, tc.wantMax)
+			}
+			if len(rest) != len(tc.wantRest) {
+				t.Fatalf("rest len = %d, want %d", len(rest), len(tc.wantRest))
+			}
+			for i := range rest {
+				if rest[i] != tc.wantRest[i] {
+					t.Fatalf("rest[%d] = %q, want %q", i, rest[i], tc.wantRest[i])
+				}
+			}
+		})
+	}
+}
+
+func TestLimitErrors(t *testing.T) {
+	t.Parallel()
+
+	errA := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{})
+	errB := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{})
+	errC := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{})
+	in := []error{errA, errB, errC}
+
+	if got := limitErrors(in, 0); len(got) != 3 {
+		t.Fatalf("len(limitErrors(0)) = %d, want 3", len(got))
+	}
+	if got := limitErrors(in, 2); len(got) != 2 {
+		t.Fatalf("len(limitErrors(2)) = %d, want 2", len(got))
 	}
 }
 
