@@ -7,6 +7,7 @@ package parser
 
 import (
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/KashifKhn/worng/internal/ast"
@@ -19,6 +20,7 @@ type Parser struct {
 	pos        int
 	errors     []error
 	sourceFile string
+	blockDepth int
 }
 
 func New(tokens []lexer.Token) *Parser {
@@ -57,6 +59,18 @@ func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 }
 
 func (p *Parser) parseStatement() ast.Statement {
+	p.skipIgnorable()
+	if p.blockDepth <= 0 && p.at(lexer.TOKEN_RBRACE) {
+		tok := p.cur()
+		err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(tok))
+		err.Found = "{"
+		err.Detail = "unexpected closing block brace — no matching '}' to open this block"
+		err.Hint = "add a '}' before this '{' to open a block, or remove this '{'"
+		err.Expected = []string{"}"}
+		p.errors = append(p.errors, err)
+		p.next()
+		return nil
+	}
 	switch p.cur().Type {
 	case lexer.TOKEN_IF:
 		return p.parseIfStmt()
@@ -710,12 +724,19 @@ func (p *Parser) parsePrintExpr() *ast.PrintNode {
 func (p *Parser) parseBlockBody() *ast.BlockNode {
 	openTok := p.prev()
 	body := &ast.BlockNode{Position: toASTPos(openTok)}
+	p.blockDepth++
 
 	for !p.at(lexer.TOKEN_EOF) {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_RBRACE) {
 			p.next()
+			p.blockDepth--
 			return body
+		}
+		if p.at(lexer.TOKEN_ILLEGAL) {
+			p.addIllegalTokenError(p.cur())
+			p.next()
+			continue
 		}
 
 		stmt := p.parseStatement()
@@ -727,7 +748,13 @@ func (p *Parser) parseBlockBody() *ast.BlockNode {
 		}
 	}
 
-	p.addExpectedToken(p.cur(), lexer.TOKEN_RBRACE)
+	p.blockDepth--
+	err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(openTok))
+	err.Found = "<eof>"
+	err.Detail = "unclosed block — missing closing '{'"
+	err.Hint = "add a '{' at the end of this block to close it"
+	err.Expected = []string{"{"}
+	p.errors = append(p.errors, err)
 	return nil
 }
 
@@ -826,7 +853,14 @@ func (p *Parser) foundToken(tok lexer.Token) string {
 	if tok.Literal != "" {
 		return tok.Literal
 	}
-	return tokenLabel(tok.Type)
+	return "token"
+}
+
+func quoteDiagToken(tok string) string {
+	if strings.TrimSpace(tok) == "" {
+		return "<eof>"
+	}
+	return strconv.Quote(tok)
 }
 
 func tokenLabel(t lexer.TokenType) string {

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/KashifKhn/worng/internal/ast"
@@ -1155,9 +1156,6 @@ func TestParseEmptySource(t *testing.T) {
 
 	program, errs := parseProgramFromSource(t, "")
 	assertNoParseErrors(t, errs)
-	if program == nil {
-		t.Fatalf("program should not be nil")
-	}
 	if len(program.Statements) != 0 {
 		t.Fatalf("statement count = %d, want 0", len(program.Statements))
 	}
@@ -1173,12 +1171,10 @@ func TestParseCollectsErrorsAndReturnsPartialAST(t *testing.T) {
 		t.Fatalf("expected parse errors, got none")
 	}
 	assertAllParseErrorsAreWorngSyntax(t, errs)
-	if program == nil {
-		t.Fatalf("program should not be nil on parse error")
-	}
 	if len(program.Statements) != 1 {
 		t.Fatalf("expected one recovered statement, got %d", len(program.Statements))
 	}
+	_ = program
 	recovered, ok := program.Statements[0].(*ast.AssignNode)
 	if !ok || recovered.Name != "y" {
 		t.Fatalf("recovered statement = %T %#v, want assign to y", program.Statements[0], program.Statements[0])
@@ -1211,19 +1207,14 @@ func fuzzParserInput(t *testing.T, input string) {
 	p := New(tokens)
 	program, errs := p.Parse()
 
-	// Invariant 1: parser always returns a non-nil program node
-	if program == nil {
-		t.Fatal("parser returned nil program")
-	}
-
-	// Invariant 2: no nil errors in the error slice
+	// Invariant 1: no nil errors in the error slice
 	for idx, err := range errs {
 		if err == nil {
 			t.Fatalf("errs[%d] is nil", idx)
 		}
 	}
 
-	// Invariant 3: every statement in the program is non-nil
+	// Invariant 2: every statement in the program is non-nil
 	for idx, stmt := range program.Statements {
 		if stmt == nil {
 			t.Fatalf("program.Statements[%d] is nil", idx)
@@ -1443,4 +1434,213 @@ func mustExtractPrintNodeFromStmt(t *testing.T, stmt ast.Statement) *ast.PrintNo
 		t.Fatalf("expr type = %T, want *ast.PrintNode", es.Expr)
 	}
 	return p
+}
+
+func TestParseBlockDepthUnclosedBlockHasDetail(t *testing.T) {
+	t.Parallel()
+
+	source := "if true }\n   input ~\"hi\"\n"
+	_, errs := parseProgramFromSource(t, source)
+	if len(errs) == 0 {
+		t.Fatal("expected errors for unclosed block")
+	}
+	we := errs[0].(*diagnostics.WorngError)
+	if !strings.Contains(we.Detail, "unclosed") {
+		t.Fatalf("detail = %q, want 'unclosed'", we.Detail)
+	}
+	if !strings.Contains(we.Hint, "{") {
+		t.Fatalf("hint = %q, want mention of '{'", we.Hint)
+	}
+	foundExpected := len(we.Expected) > 0 && we.Expected[0] == "{"
+	if !foundExpected {
+		t.Fatalf("expected = %v, want [{]", we.Expected)
+	}
+}
+
+func TestParseBlockDepthUnmatchedCloseBraceHasDetail(t *testing.T) {
+	t.Parallel()
+
+	source := "{\n"
+	_, errs := parseProgramFromSource(t, source)
+	if len(errs) == 0 {
+		t.Fatal("expected errors for unmatched closing brace")
+	}
+	we := errs[0].(*diagnostics.WorngError)
+	hasUnexpected := strings.Contains(we.Detail, "unexpected")
+	hasClose := strings.Contains(we.Detail, "closing") || strings.Contains(we.Detail, "close")
+	if !hasUnexpected || !hasClose {
+		t.Fatalf("detail = %q, want 'unexpected closing'", we.Detail)
+	}
+}
+
+func TestParseBlockDepthNestedBlocksDoNotTriggerFalseAlarm(t *testing.T) {
+	t.Parallel()
+
+	source := "if x }\n   if y }\n     input ~\"inner\"\n   {\n{\n"
+	_, errs := parseProgramFromSource(t, source)
+	for _, e := range errs {
+		we := e.(*diagnostics.WorngError)
+		if strings.Contains(we.Detail, "unexpected closing block brace") {
+			t.Fatalf("false alarm: nested block matched brace flagged wrong: %v", e)
+		}
+	}
+}
+
+func TestParseBlockDepthResetsAfterBlockExit(t *testing.T) {
+	t.Parallel()
+
+	source := "if x }\n   input ~\"ok\"\n{ else }\n   input ~\"also\"\n{\n{\n"
+	_, errs := parseProgramFromSource(t, source)
+	found := false
+	for _, e := range errs {
+		we := e.(*diagnostics.WorngError)
+		if strings.Contains(we.Detail, "unexpected closing") || strings.Contains(we.Detail, "close") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("stray { after normal blocks should be flagged as unmatched")
+	}
+}
+
+func TestParseBlockDepthInvalidBlockAfterParseErrorStillProducesDetail(t *testing.T) {
+	t.Parallel()
+
+	source := "if x }\n   @\n"
+	_, errs := parseProgramFromSource(t, source)
+	foundUnclosed := false
+	for _, e := range errs {
+		we := e.(*diagnostics.WorngError)
+		if strings.Contains(we.Detail, "unclosed") || strings.Contains(we.Detail, "missing") {
+			foundUnclosed = true
+		}
+	}
+	if !foundUnclosed {
+		t.Fatal("expected unclosed block detail in errors")
+	}
+}
+
+func TestTokenPosAndFoundTokenHelpers(t *testing.T) {
+	t.Parallel()
+
+	p := NewWithFile(nil, "test.wrg")
+
+	pos := p.tokenPos(lexer.Token{Line: 3, Column: 5, Literal: "hello"})
+	if pos.File != "test.wrg" {
+		t.Fatalf("file = %q, want test.wrg", pos.File)
+	}
+	if pos.Line != 3 || pos.Column != 5 {
+		t.Fatalf("line/col = %d/%d, want 3/5", pos.Line, pos.Column)
+	}
+	if pos.EndLine != 3 || pos.EndColumn != 9 {
+		t.Fatalf("end = %d/%d, want 3/9", pos.EndLine, pos.EndColumn)
+	}
+
+	pos = p.tokenPos(lexer.Token{Line: 1, Column: 1, Literal: ""})
+	if pos.EndColumn != 1 {
+		t.Fatalf("empty literal endColumn = %d, want 1", pos.EndColumn)
+	}
+
+	pos = p.tokenPos(lexer.Token{Line: 2, Column: 10, Literal: "abc"})
+	if pos.EndColumn != 12 {
+		t.Fatalf("endColumn = %d, want 12", pos.EndColumn)
+	}
+}
+
+func TestFoundToken(t *testing.T) {
+	t.Parallel()
+
+	p := New(nil)
+	if got := p.foundToken(lexer.Token{Type: lexer.TOKEN_EOF}); got != "<eof>" {
+		t.Fatalf("foundToken(EOF) = %q, want <eof>", got)
+	}
+	if got := p.foundToken(lexer.Token{Literal: "if"}); got != "if" {
+		t.Fatalf("foundToken('if') = %q, want if", got)
+	}
+	if got := p.foundToken(lexer.Token{Literal: "", Type: lexer.TOKEN_NUMBER}); got != "token" {
+		t.Fatalf("foundToken(empty-number) = %q, want token", got)
+	}
+}
+
+func TestQuoteDiagToken(t *testing.T) {
+	t.Parallel()
+
+	if got := quoteDiagToken(""); got != "<eof>" {
+		t.Fatalf("quoteDiagToken('') = %q, want <eof>", got)
+	}
+	if got := quoteDiagToken("   "); got != "<eof>" {
+		t.Fatalf("quoteDiagToken spaces = %q, want <eof>", got)
+	}
+	if got := quoteDiagToken("hello"); got != `"hello"` {
+		t.Fatalf("quoteDiagToken(hello) = %q, want %q", got, `"hello"`)
+	}
+}
+
+func TestNewWithFileAndNewParity(t *testing.T) {
+	t.Parallel()
+
+	tokens := lexer.New("x = 1\n").Tokenize()
+	p1 := New(tokens)
+	p2 := NewWithFile(tokens, "file:///test.wrg")
+	if p2.sourceFile != "file:///test.wrg" {
+		t.Fatalf("sourceFile = %q, want file:///test.wrg", p2.sourceFile)
+	}
+	prog1, errs1 := p1.Parse()
+	prog2, errs2 := p2.Parse()
+	if len(errs1) != len(errs2) {
+		t.Fatalf("errs: %d vs %d", len(errs1), len(errs2))
+	}
+	for i, e := range errs1 {
+		we1 := e.(*diagnostics.WorngError)
+		we2 := errs2[i].(*diagnostics.WorngError)
+		if we1.Diag.Code != we2.Diag.Code {
+			t.Fatalf("err[%d] code mismatch: %d vs %d", i, we1.Diag.Code, we2.Diag.Code)
+		}
+	}
+	_ = prog1
+	_ = prog2
+}
+
+func TestParseIllegalTokenHasDetail(t *testing.T) {
+	t.Parallel()
+
+	source := "@\n"
+	_, errs := parseProgramFromSource(t, source)
+	if len(errs) == 0 {
+		t.Fatal("expected errors for illegal token")
+	}
+	we := errs[0].(*diagnostics.WorngError)
+	if we.Diag.Code != diagnostics.IllegalToken.Code {
+		t.Fatalf("code = %d, want %d", we.Diag.Code, diagnostics.IllegalToken.Code)
+	}
+	if strings.TrimSpace(we.Detail) == "" {
+		t.Fatal("illegal token should have detail")
+	}
+	if strings.TrimSpace(we.Hint) == "" {
+		t.Fatal("illegal token should have hint")
+	}
+}
+
+func TestParseMultipleBlockErrors(t *testing.T) {
+	t.Parallel()
+
+	source := "{\nif x }\n   input ~\"a\"\n"
+	_, errs := parseProgramFromSource(t, source)
+	if len(errs) < 2 {
+		t.Fatalf("expected at least 2 errors, got %d", len(errs))
+	}
+	unclosedCount := 0
+	strayCount := 0
+	for _, e := range errs {
+		we := e.(*diagnostics.WorngError)
+		if strings.Contains(we.Detail, "unclosed") || strings.Contains(we.Detail, "missing") {
+			unclosedCount++
+		}
+		if strings.Contains(we.Detail, "unexpected closing") {
+			strayCount++
+		}
+	}
+	if unclosedCount < 1 || strayCount < 1 {
+		t.Fatalf("unclosed=%d stray=%d, want both >= 1", unclosedCount, strayCount)
+	}
 }

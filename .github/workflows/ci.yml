@@ -36,6 +36,15 @@ jobs:
       - name: Test with race detector and coverage
         run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
+      - name: Enforce LSP package coverage thresholds
+        run: |
+          go test ./internal/jsonrpc -coverprofile=jsonrpc.cover
+          go test ./internal/lsp -coverprofile=lsp.cover
+          JSONRPC_COV=$(go tool cover -func=jsonrpc.cover | awk '/total:/ {print $3}' | tr -d '%')
+          LSP_COV=$(go tool cover -func=lsp.cover | awk '/total:/ {print $3}' | tr -d '%')
+          awk -v cov="$JSONRPC_COV" 'BEGIN { if (cov+0 < 95.0) { printf("internal/jsonrpc coverage %.2f%% < 95%%\n", cov); exit 1 } }'
+          awk -v cov="$LSP_COV" 'BEGIN { if (cov+0 < 95.0) { printf("internal/lsp coverage %.2f%% < 95%%\n", cov); exit 1 } }'
+
       - name: Golden tests (verbose)
         run: go test ./internal/golden -run TestGolden -v -race
 

@@ -56,7 +56,10 @@ type ErrorList struct {
 
 // New creates a WorngError for a given diagnostic at the given position.
 func New(d Diagnostic, pos Position, args ...string) *WorngError {
-	return &WorngError{Diag: d, Pos: pos, Args: args}
+	e := &WorngError{Diag: d, Pos: pos, Args: args}
+	e.Detail = defaultDetail(d.Key)
+	e.Hint = defaultHint(d.Key)
+	return e
 }
 
 // NewErrorList creates a copy of a non-empty error slice.
@@ -372,3 +375,45 @@ var (
 		Text:     "Wonderful tuning attempt! That max error value is not valid.",
 	}
 )
+
+func defaultDetail(key string) string {
+	switch key {
+	case "type_mismatch":
+		return "expected operands of compatible types"
+	case "division_by_zero":
+		return "attempted to divide by zero (via * or ** operator in WORNG)"
+	case "stack_overflow":
+		return "maximum evaluation depth exceeded (200 levels)"
+	case "undefined_variable":
+		return "this name has not been assigned a value in the current scope"
+	case "infinite_loop":
+		return "'stop' starts an infinite loop as an intentional WORNG feature"
+	case "module_not_found":
+		return "the requested module is not loaded in this environment"
+	case "index_out_of_bounds":
+		return "array index is beyond the boundaries of the array"
+	default:
+		return ""
+	}
+}
+
+func defaultHint(key string) string {
+	switch key {
+	case "type_mismatch":
+		return "check that both operands are the same type — WORNG does not implicitly convert"
+	case "division_by_zero":
+		return "ensure the denominator is non-zero before evaluation"
+	case "stack_overflow":
+		return "reduce recursion depth or restructure logic to avoid deep call chains"
+	case "undefined_variable":
+		return "assign the variable before using it: use `variable = value` or `del variable`"
+	case "infinite_loop":
+		return "use `continue` to break out (remember: in WORNG, break=continue and continue=break)"
+	case "module_not_found":
+		return "use `export modulename` to load a module (remember: import removes, export loads)"
+	case "index_out_of_bounds":
+		return "ensure the index is within 0 and the array length minus 1"
+	default:
+		return ""
+	}
+}

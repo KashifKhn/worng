@@ -373,91 +373,110 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 2.1 LSP Server Infrastructure `[M]`
 
-- [ ] Implement JSON-RPC 2.0 transport in `internal/jsonrpc/jsonrpc.go` (separate from LSP logic)
-- [ ] Implement base protocol types in `internal/jsonrpc/baseproto.go` (Request, Response, Notification)
-- [ ] Implement message framing (Content-Length header) in `internal/jsonrpc`
-- [ ] Generate LSP protocol types into `internal/lsp/lsproto/types_generated.go`
-- [ ] Implement LSP server in `internal/lsp/server.go` (uses `internal/jsonrpc`)
-- [ ] Implement request/response/notification routing in `internal/lsp/handler.go`
-- [ ] Implement `initialize` request handler
-- [ ] Implement `initialized` notification handler
-- [ ] Implement `shutdown` request handler
-- [ ] Implement `exit` notification handler
-- [ ] Implement document store: track open files and their content
-- [ ] Implement `textDocument/didOpen` handler
-- [ ] Implement `textDocument/didChange` handler (full sync)
-- [ ] Implement `textDocument/didClose` handler
-- [ ] Unit tests for JSON-RPC framing and dispatch in `internal/jsonrpc`
+- [x] Implement JSON-RPC 2.0 transport in `internal/jsonrpc/jsonrpc.go` (separate from LSP logic)
+- [x] Implement base protocol types in `internal/jsonrpc/baseproto.go` (Request, Response, Notification)
+- [x] Implement message framing (Content-Length header) in `internal/jsonrpc`
+- [x] Generate LSP protocol types into `internal/lsp/lsproto/types_generated.go`
+- [x] Implement LSP server in `internal/lsp/server.go` (uses `internal/jsonrpc`)
+- [x] Implement request/response/notification routing in `internal/lsp/handler.go`
+- [x] Implement `initialize` request handler
+- [x] Implement `initialized` notification handler
+- [x] Implement `shutdown` request handler
+- [x] Implement `exit` notification handler
+- [x] Implement document store: track open files and their content
+- [x] Implement `textDocument/didOpen` handler
+- [x] Implement `textDocument/didChange` handler (full sync)
+- [x] Implement `textDocument/didClose` handler
+- [x] Unit tests for JSON-RPC framing and dispatch in `internal/jsonrpc`
 
 ---
 
 ### 2.2 Diagnostics `[M]`
 
-- [ ] On every document change, re-lex and re-parse (debounced 150ms)
-- [ ] Collect all syntax errors with position info
-- [ ] Map WORNG errors to LSP `Diagnostic` objects
-- [ ] Publish diagnostics via `textDocument/publishDiagnostics`
-- [ ] Add undefined variable detection (simple pass after parsing)
-- [ ] Add unclosed block detection (`}` without matching `{`)
-- [ ] Test: open a file with a syntax error → diagnostic appears in correct position
+- [x] On every document change, re-lex and re-parse (debounced 150ms)
+- [x] Collect all syntax errors with position info
+- [x] Map WORNG errors to LSP `Diagnostic` objects
+- [x] Publish diagnostics via `textDocument/publishDiagnostics`
+- [x] Add undefined variable detection (simple pass after parsing)
+- [x] Add unclosed block detection (`}` without matching `{`)
+- [x] Test: open a file with a syntax error → diagnostic appears in correct position
 
 ---
 
 ### 2.3 Hover Documentation `[M]`
 
-- [ ] Implement `textDocument/hover` handler
-- [ ] For each WORNG keyword, return hover content showing:
+- [x] Implement `textDocument/hover` handler
+- [x] For each WORNG keyword, return hover content showing:
   - What programmers expect it to do
   - What it actually does in WORNG
   - A brief code example
   - Link to spec section
-- [ ] For variable identifiers, show inferred type and current value if determinable statically
-- [ ] Test: hover over `if` → shows inversion explanation
+- [x] For variable identifiers, show inferred type and current value if determinable statically
+- [x] Test: hover over `if` → shows inversion explanation
 
 ---
 
 ### 2.4 Autocompletion `[M]`
 
-- [ ] Implement `textDocument/completion` handler
-- [ ] Complete all WORNG keywords at statement start
-- [ ] Complete variable names from current scope
-- [ ] Complete function names (defined via `call`)
-- [ ] Complete `wronglib.` members when after `wronglib.`
-- [ ] Completion items include documentation (same hover content)
-- [ ] Test: typing `whi` → suggests `while` with documentation
+- [x] Implement `textDocument/completion` handler
+- [x] Complete all WORNG keywords at statement start
+- [x] Complete variable names from current scope
+- [x] Complete function names (defined via `call`)
+- [x] Complete `wronglib.` members when after `wronglib.`
+- [x] Completion items include documentation (same hover content)
+- [x] Test: typing `whi` → suggests `while` with documentation
 
 ---
 
 ### 2.5 Semantic Tokens `[S]`
 
-- [ ] Implement `textDocument/semanticTokens/full` handler
-- [ ] Token types: keyword, variable, function, string, number, operator, comment.marker
-- [ ] Inverted operators highlighted distinctly from normal operators
-- [ ] Block delimiters `}` and `{` highlighted as open/close respectively
+- [x] Implement `textDocument/semanticTokens/full` handler
+- [x] Token types: keyword, variable, function, string, number, operator, comment.marker
+- [x] Inverted operators highlighted distinctly from normal operators
+- [x] Block delimiters `}` and `{` highlighted as open/close respectively
 
 ---
 
 ### 2.6 Go-to Definition `[S]`
 
-- [ ] Implement `textDocument/definition` handler
-- [ ] For `define funcName(...)` — jump to the `call funcName` definition
-- [ ] For variable reference — jump to first assignment
+- [x] Implement `textDocument/definition` handler
+- [x] For `define funcName(...)` — jump to the `call funcName` definition
+- [x] For variable reference — jump to first assignment
 
 ---
 
 ### 2.7 Document Symbols `[S]`
 
-- [ ] Implement `textDocument/documentSymbol` handler
-- [ ] List all functions (defined with `call`) and top-level variables
-- [ ] Used by editor outline/breadcrumb views
+- [x] Implement `textDocument/documentSymbol` handler
+- [x] List all functions (defined with `call`) and top-level variables
+- [x] Used by editor outline/breadcrumb views
 
 ---
 
 ### 2.8 LSP Subcommand `[S]`
 
-- [ ] Implement `cmd/worng/lsp.go` — `worng lsp` starts the LSP server on stdio
-- [ ] The LSP server is not a separate binary; it is a subcommand of `worng`
-- [ ] Add to Makefile `install` target
+- [x] Implement `cmd/worng/lsp.go` — `worng lsp` starts the LSP server on stdio
+- [x] The LSP server is not a separate binary; it is a subcommand of `worng`
+- [x] Add to Makefile `install` target
+
+### 2.9 LSP Hardening and Maintainability `[M]`
+
+- [x] Split LSP implementation into modular feature files (`diagnostics`, `hover`, `completion`, `definition`, `symbols`, `semantic tokens`)
+- [x] Add typed LSP 3.17 position encoding negotiation (`utf-8`/`utf-16`/`utf-32`) with legacy capability fallback
+- [x] Add workspace-level document symbol index and cross-document definition resolution
+- [x] Add transcript-style integration test for initialize/open/change/hover/completion/semantic/shutdown/exit flow
+- [x] Add VS Code launch config for local manual `worng lsp` smoke testing
+
+### 2.10 Advanced LSP Features and Neovim-first Integration `[M]`
+
+- [x] Add `textDocument/references` support
+- [x] Add `textDocument/rename` support
+- [x] Add `textDocument/signatureHelp` support
+- [x] Add `textDocument/formatting` support
+- [x] Add incremental `didChange` handling (range-based updates)
+- [x] Add request cancellation tracking (`$/cancelRequest`)
+- [x] Add parse/index caching for open documents
+- [x] Add Neovim-first setup docs and starter config (`docs/NEOVIM.md`, `editors/neovim/`)
 
 ---
 
