@@ -7,6 +7,8 @@ package parser
 
 import (
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/KashifKhn/worng/internal/ast"
 	"github.com/KashifKhn/worng/internal/diagnostics"
@@ -14,13 +16,19 @@ import (
 )
 
 type Parser struct {
-	tokens []lexer.Token
-	pos    int
-	errors []error
+	tokens     []lexer.Token
+	pos        int
+	errors     []error
+	sourceFile string
+	blockDepth int
 }
 
 func New(tokens []lexer.Token) *Parser {
-	return &Parser{tokens: tokens}
+	return NewWithFile(tokens, "")
+}
+
+func NewWithFile(tokens []lexer.Token, file string) *Parser {
+	return &Parser{tokens: tokens, sourceFile: file}
 }
 
 func (p *Parser) Parse() (*ast.ProgramNode, []error) {
@@ -30,6 +38,11 @@ func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_EOF) {
 			break
+		}
+		if p.at(lexer.TOKEN_ILLEGAL) {
+			p.addSyntaxError(p.cur())
+			p.next()
+			continue
 		}
 
 		stmt := p.parseStatement()
@@ -46,6 +59,18 @@ func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 }
 
 func (p *Parser) parseStatement() ast.Statement {
+	p.skipIgnorable()
+	if p.blockDepth <= 0 && p.at(lexer.TOKEN_RBRACE) {
+		tok := p.cur()
+		err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(tok))
+		err.Found = "{"
+		err.Detail = "unexpected closing block brace — no matching '}' to open this block"
+		err.Hint = "add a '}' before this '{' to open a block, or remove this '{'"
+		err.Expected = []string{"}"}
+		p.errors = append(p.errors, err)
+		p.next()
+		return nil
+	}
 	switch p.cur().Type {
 	case lexer.TOKEN_IF:
 		return p.parseIfStmt()
@@ -702,12 +727,19 @@ func (p *Parser) parsePrintExpr() *ast.PrintNode {
 func (p *Parser) parseBlockBody() *ast.BlockNode {
 	openTok := p.prev()
 	body := &ast.BlockNode{Position: toASTPos(openTok)}
+	p.blockDepth++
 
 	for !p.at(lexer.TOKEN_EOF) {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_RBRACE) {
 			p.next()
+			p.blockDepth--
 			return body
+		}
+		if p.at(lexer.TOKEN_ILLEGAL) {
+			p.addSyntaxError(p.cur())
+			p.next()
+			continue
 		}
 
 		stmt := p.parseStatement()
@@ -719,7 +751,13 @@ func (p *Parser) parseBlockBody() *ast.BlockNode {
 		}
 	}
 
-	p.addSyntaxError(openTok)
+	p.blockDepth--
+	err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(openTok))
+	err.Found = "<eof>"
+	err.Detail = "unclosed block — missing closing '{'"
+	err.Hint = "add a '{' at the end of this block to close it"
+	err.Expected = []string{"{"}
+	p.errors = append(p.errors, err)
 	return nil
 }
 
@@ -744,8 +782,47 @@ func (p *Parser) syncToNextLine() {
 }
 
 func (p *Parser) addSyntaxError(tok lexer.Token) {
-	err := diagnostics.New(diagnostics.SyntaxError, diagnostics.Position{Line: tok.Line, Column: tok.Column})
+	pos := p.tokenPos(tok)
+	err := diagnostics.New(diagnostics.SyntaxError, pos)
+	err.Found = p.foundToken(tok)
+	err.Detail = "unexpected token " + quoteDiagToken(err.Found)
+	err.Hint = "rewrite this statement using a valid WORNG keyword or expression"
 	p.errors = append(p.errors, err)
+}
+
+func (p *Parser) tokenPos(tok lexer.Token) diagnostics.Position {
+	width := utf8.RuneCountInString(tok.Literal)
+	if width <= 0 {
+		width = 1
+	}
+	endCol := tok.Column + width - 1
+	if endCol < tok.Column {
+		endCol = tok.Column
+	}
+	return diagnostics.Position{
+		File:      p.sourceFile,
+		Line:      tok.Line,
+		Column:    tok.Column,
+		EndLine:   tok.Line,
+		EndColumn: endCol,
+	}
+}
+
+func (p *Parser) foundToken(tok lexer.Token) string {
+	if tok.Type == lexer.TOKEN_EOF {
+		return "<eof>"
+	}
+	if tok.Literal != "" {
+		return tok.Literal
+	}
+	return "token"
+}
+
+func quoteDiagToken(tok string) string {
+	if strings.TrimSpace(tok) == "" {
+		return "<eof>"
+	}
+	return strconv.Quote(tok)
 }
 
 func (p *Parser) expect(t lexer.TokenType) bool {
