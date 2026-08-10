@@ -133,14 +133,16 @@ worng run --order=ttb hello.wrg
 ## CLI commands
 
 ```
-worng run [--order=btt|ttb] <file>    Run a .wrg file
+worng run [--order=btt|ttb] [--json] [--max-errors=N] <file>    Run a .wrg file
 worng run [--order=btt|ttb] --repl    Interactive REPL
-worng check [--order=btt|ttb] <file>  Parse without running
+worng check [--order=btt|ttb] [--json] [--max-errors=N] <file>  Parse without running
 worng fmt <file>                      Format in-place
 worng version                         Print version
 ```
 
 `btt` (bottom-to-top) is the default execution order. `ttb` (top-to-bottom) runs statements in source order.
+
+`--json` emits machine-readable diagnostics, useful for editors and CI. `--max-errors=N` limits parser diagnostics (default `20`, `0` means unlimited).
 
 ## Interactive REPL
 

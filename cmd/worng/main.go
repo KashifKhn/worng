@@ -39,9 +39,9 @@ func runCLI(args []string) int {
 
 func printUsage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  worng run [--order=btt|ttb] <file>")
+	fmt.Fprintln(os.Stderr, "  worng run [--order=btt|ttb] [--json] [--max-errors=N] <file>")
 	fmt.Fprintln(os.Stderr, "  worng run [--order=btt|ttb] --repl")
-	fmt.Fprintln(os.Stderr, "  worng check [--order=btt|ttb] <file>")
+	fmt.Fprintln(os.Stderr, "  worng check [--order=btt|ttb] [--json] [--max-errors=N] <file>")
 	fmt.Fprintln(os.Stderr, "  worng fmt <file>")
 	fmt.Fprintln(os.Stderr, "  worng lsp")
 	fmt.Fprintln(os.Stderr, "  worng version")

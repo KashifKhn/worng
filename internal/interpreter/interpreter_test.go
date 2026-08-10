@@ -56,7 +56,7 @@ func FuzzInterpreter(f *testing.F) {
 			}
 
 			tokens := lexer.New(prepared).Tokenize()
-			p := parser.New(tokens)
+			p := parser.NewWithFile(tokens, "test.wrg")
 			program, errs := p.Parse()
 			if len(errs) > 0 {
 				for idx, err := range errs {
@@ -703,6 +703,16 @@ func TestEvalTypeMismatchErrors(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected type mismatch error")
 		}
+		we, ok := err.(*diagnostics.WorngError)
+		if !ok {
+			t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+		}
+		if we.Diag.Code != diagnostics.TypeMismatch.Code {
+			t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.TypeMismatch.Code)
+		}
+		if we.Detail == "" || we.Found != "string" {
+			t.Fatalf("detail/found missing: detail=%q found=%q", we.Detail, we.Found)
+		}
 	})
 
 	t.Run("is on non-bool", func(t *testing.T) {
@@ -727,6 +737,13 @@ func TestEvalTypeMismatchErrors(t *testing.T) {
 		})
 		if err == nil {
 			t.Fatal("expected type mismatch error")
+		}
+		we, ok := err.(*diagnostics.WorngError)
+		if !ok {
+			t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+		}
+		if we.Found != "number" {
+			t.Fatalf("found = %q, want %q", we.Found, "number")
 		}
 	})
 
