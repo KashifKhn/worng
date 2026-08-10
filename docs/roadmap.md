@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: WORNG development roadmap — Phase 1 (core interpreter) is complete. See what's planned for LSP, WASM playground, package manager, and editor integrations.
+description: WORNG development roadmap — the core interpreter and LSP are complete, Tree-sitter editor parsing is available, and editor integrations are next.
 head:
   - - meta
     - name: keywords
@@ -9,14 +9,18 @@ head:
 
 # Roadmap
 
-WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete. Here's where everything stands.
+WORNG is built in five sequential phases. The core interpreter and LSP are
+complete. Tree-sitter editor parsing is available, and editor packaging is the
+current focus.
 
 ---
 
 ## Current Status
 
-**Version:** `v0.1.0`  
-**Phase 1 complete.** The interpreter is fully operational. All language features from the spec are implemented and tested. The CLI (`worng run`, `worng check`, `worng fmt`, `worng version`) works. All golden tests pass.
+**Interpreter:** complete
+**LSP:** complete
+**Tree-sitter grammar:** available
+**Current focus:** editor integrations
 
 ---
 
@@ -26,8 +30,8 @@ WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete
 |---------|-------|-------------|--------|
 | `v0.0.1` | 0 | Foundation — repo, CI, docs | ✅ Complete |
 | `v0.1.0` | 1 | Core Interpreter — full language, CLI, tests | ✅ Complete |
-| `v0.2.0` | 2 | LSP Server — diagnostics, hover, autocomplete | ⬜ Not started |
-| `v0.3.0` | 3 | Editor Integrations — VSCode + Neovim | ⬜ Not started |
+| `v0.2.0` | 2 | LSP Server — diagnostics, hover, autocomplete | ✅ Complete |
+| `v0.3.0` | 3 | Editor Integrations — Tree-sitter, VSCode + Neovim | 🚧 In progress |
 | `v0.4.0` | 4 | Web Playground — WASM, live browser execution | ⬜ Not started |
 | `v1.0.0` | 5 | Polish and Publish — binaries, Homebrew, community | ⬜ Not started |
 
@@ -53,7 +57,7 @@ WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete
 
 ---
 
-## Phase 2 — LSP Server ⬜
+## Phase 2 — LSP Server ✅
 
 **Goal:** Real-time diagnostics, autocomplete, and hover documentation in any LSP-capable editor.
 
@@ -67,9 +71,11 @@ WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete
 - Document symbols (function list for editor outline)
 - `worng lsp` subcommand (stdio transport)
 
+The Phase 2 implementation is complete on `main`. See the [LSP setup guide](/guide/lsp).
+
 ---
 
-## Phase 3 — Editor Integrations ⬜
+## Phase 3 — Editor Integrations 🚧
 
 **Goal:** One-click installation in VSCode. Zero-config setup in Neovim.
 
@@ -78,6 +84,10 @@ WORNG is built in five sequential phases. Phase 1 (Core Interpreter) is complete
 - `tree-sitter-worng` — incremental syntax highlighting grammar
 - VSCode extension — syntax highlighting, LSP, snippets, bracket matching (`}` / `{`)
 - Neovim plugin — `nvim-lspconfig` integration, tree-sitter parser
+
+The Tree-sitter grammar, generated parser, highlighting, indentation, folding,
+and corpus tests are available in `tree-sitter-worng/`. VSCode packaging and a
+complete Neovim Tree-sitter registration remain.
 
 ---
 

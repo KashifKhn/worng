@@ -1,0 +1,20 @@
+{
+  "grammars": [
+    {
+      "name": "worng",
+      "camelcase": "Worng",
+      "scope": "source.worng",
+      "path": ".",
+      "file-types": ["wrg", "worng", "wrong"],
+      "injection-regex": "worng"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for the WORNG programming language",
+    "links": {
+      "repository": "https://github.com/KashifKhn/worng"
+    }
+  }
+}

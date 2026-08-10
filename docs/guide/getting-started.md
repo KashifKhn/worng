@@ -137,6 +137,7 @@ worng run [--order=btt|ttb] [--json] [--max-errors=N] <file>    Run a .wrg file
 worng run [--order=btt|ttb] --repl    Interactive REPL
 worng check [--order=btt|ttb] [--json] [--max-errors=N] <file>  Parse without running
 worng fmt <file>                      Format in-place
+worng lsp                             Start the Language Server over stdio
 worng version                         Print version
 ```
 
@@ -170,3 +171,5 @@ Non-comment lines are silently ignored in the REPL, consistent with file executi
 - [Execution Model](/language/execution-model) — understand bottom-to-top execution
 - [Data Types](/language/data-types) — numbers, strings, booleans, null
 - [Examples](/examples) — annotated programs
+- [LSP Setup](/guide/lsp) — connect an editor to WORNG
+- [Neovim Setup](/guide/neovim) — configure Neovim

@@ -77,6 +77,7 @@ INTERPRETER — tree-walking evaluator, applies inversion rules
 | `internal/lsp` | Language Server Protocol implementation | everything above + jsonrpc |
 | `cmd/worng` | CLI entry point | anything — only place for `os.Exit` |
 | `playground/` | WASM entry point | interpreter, vfs |
+| `tree-sitter-worng` | Incremental editor grammar and queries | Tree-sitter CLI |
 
 These dependency rules are strict. Violating them creates circular imports.
 
@@ -139,6 +140,8 @@ make fmt          # gofmt -w .
 make lint         # golangci-lint run
 make wasm         # GOOS=js GOARCH=wasm go build ./playground
 make install      # go install ./cmd/worng
+make tree-sitter-generate # generate the Tree-sitter parser
+make tree-sitter-test     # run Tree-sitter corpus tests
 ```
 
 ---
@@ -160,6 +163,14 @@ The WASM module exposes one function to JavaScript: `worngRun(source)`, which re
 The LSP server (`worng lsp`) uses stdio JSON-RPC 2.0 transport. The JSON-RPC layer (`internal/jsonrpc`) is separate from LSP logic (`internal/lsp`) — the same separation used by `microsoft/typescript-go`.
 
 LSP protocol types in `internal/lsp/lsproto/types_generated.go` are code-generated from the LSP 3.17 schema. **Do not edit that file directly.**
+
+## Tree-sitter grammar
+
+`tree-sitter-worng/` provides the incremental parser used by editor tooling.
+It is deliberately separate from the Go parser: Tree-sitter supplies tolerant
+editor syntax trees, while the Go lexer/parser defines executable language
+behavior and diagnostics. The package includes generated parser sources and
+queries for highlighting, inverted indentation, and folding.
 
 ---
 

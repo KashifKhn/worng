@@ -1,0 +1,16 @@
+{
+  "name": "tree-sitter-worng",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the WORNG programming language",
+  "main": "bindings/node",
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  },
+  "repository": "https://github.com/KashifKhn/worng",
+  "license": "MIT",
+  "devDependencies": {
+    "tree-sitter-cli": "^0.25.10"
+  }
+}

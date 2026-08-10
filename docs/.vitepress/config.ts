@@ -200,6 +200,8 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Getting Started', link: '/guide/getting-started' },
+          { text: 'LSP Setup', link: '/guide/lsp' },
+          { text: 'Neovim Setup', link: '/guide/neovim' },
         ],
       },
       {
