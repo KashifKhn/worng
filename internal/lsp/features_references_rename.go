@@ -79,8 +79,8 @@ func (s *Server) lookupDeclaration(word string) *lsproto.Location {
 		if loc, ok := idx.funcDefs[word]; ok {
 			return &loc
 		}
-		if loc, ok := idx.vars[word]; ok {
-			return &loc
+		if vi, ok := idx.vars[word]; ok {
+			return &vi.Location
 		}
 	}
 	return nil

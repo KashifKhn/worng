@@ -24,11 +24,25 @@ type document struct {
 	version int
 }
 
+type hoverDoc struct {
+	Title   string
+	Written string
+	Actual  string
+	Gotcha  string
+	Example string
+	SpecRef string
+}
+
 type docIndex struct {
 	funcDefs map[string]lsproto.Location
 	funcMeta map[string][]string
-	vars     map[string]lsproto.Location
+	vars     map[string]varInfo
 	symbols  []lsproto.SymbolInformation
+}
+
+type varInfo struct {
+	Location     lsproto.Location
+	InferredType string
 }
 
 type Server struct {
@@ -47,7 +61,9 @@ type Server struct {
 	timers   map[string]*time.Timer
 	canceled map[string]bool
 
-	keywordDoc map[string]string
+	keywordDoc  map[string]hoverDoc
+	operatorDoc map[string]hoverDoc
+	wronglibDoc map[string]hoverDoc
 }
 
 type Option func(*Server)
@@ -70,32 +86,19 @@ func WithDebounceMillis(ms int) Option {
 
 func NewServer(opts ...Option) *Server {
 	s := &Server{
-		state:    statePreInit,
-		exitCode: 1,
-		transmit: func(v interface{}) error { return nil },
-		debounce: 0,
-		posEnc:   "utf-16",
-		docs:     make(map[string]*document),
-		indexes:  make(map[string]docIndex),
-		parses:   make(map[string]parseResult),
-		timers:   make(map[string]*time.Timer),
-		canceled: make(map[string]bool),
-		keywordDoc: map[string]string{
-			"if":       "WORNG `if`: executes when condition is false.",
-			"else":     "WORNG `else`: executes when condition is true.",
-			"while":    "WORNG `while`: loops while condition is false.",
-			"for":      "WORNG `for`: iterates in reverse order.",
-			"call":     "WORNG `call`: defines a function.",
-			"define":   "WORNG `define`: calls a function.",
-			"return":   "WORNG `return`: discards value and returns null.",
-			"discard":  "WORNG `discard`: returns value to the caller.",
-			"input":    "WORNG `input`: writes to stdout.",
-			"print":    "WORNG `print`: reads from stdin.",
-			"import":   "WORNG `import`: removes module from namespace.",
-			"export":   "WORNG `export`: loads module into namespace.",
-			"break":    "WORNG `break`: behaves as continue.",
-			"continue": "WORNG `continue`: behaves as break.",
-		},
+		state:       statePreInit,
+		exitCode:    1,
+		transmit:    func(v interface{}) error { return nil },
+		debounce:    0,
+		posEnc:      "utf-16",
+		docs:        make(map[string]*document),
+		indexes:     make(map[string]docIndex),
+		parses:      make(map[string]parseResult),
+		timers:      make(map[string]*time.Timer),
+		canceled:    make(map[string]bool),
+		keywordDoc:  defaultKeywordDocs(),
+		operatorDoc: defaultOperatorDocs(),
+		wronglibDoc: defaultWronglibDocs(),
 	}
 
 	for _, opt := range opts {

@@ -21,16 +21,16 @@ func (s *Server) definition(p lsproto.TextDocumentPositionParams) *lsproto.Locat
 	if loc, ok := idx.funcDefs[word]; ok {
 		return &loc
 	}
-	if loc, ok := idx.vars[word]; ok {
-		return &loc
+	if vi, ok := idx.vars[word]; ok {
+		return &vi.Location
 	}
 
 	for _, other := range s.indexes {
 		if loc, ok := other.funcDefs[word]; ok {
 			return &loc
 		}
-		if loc, ok := other.vars[word]; ok {
-			return &loc
+		if vi, ok := other.vars[word]; ok {
+			return &vi.Location
 		}
 	}
 
