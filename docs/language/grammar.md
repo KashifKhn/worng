@@ -112,6 +112,30 @@ NEWLINE     = "\n" | "\r\n"
 
 ## Notes
 
+## Tree-sitter grammar
+
+The repository includes a Tree-sitter grammar in
+[`tree-sitter-worng/`](https://github.com/KashifKhn/worng/tree/main/tree-sitter-worng).
+It supports incremental editor parsing without replacing the Go parser used by
+the interpreter.
+
+Generate and test the grammar from the repository root:
+
+```bash
+make tree-sitter-generate
+make tree-sitter-test
+```
+
+The grammar models WORNG-specific editor syntax:
+
+- `//` and `!!` lines are executable code markers.
+- `/* ... */` and `!* ... *!` blocks contain executable code.
+- `}` is represented as an opening block delimiter.
+- `{` is represented as a closing block delimiter.
+
+The grammar supplies highlighting, indentation, and folding queries. The Go
+lexer and parser remain authoritative for execution and diagnostics.
+
 **Preprocessor vs parser:** The preprocessor runs before the lexer. It filters source lines, keeping only those beginning with `//`, `!!`, or inside `/* */` / `!* *!` blocks. The parser never sees uncommented lines.
 
 **Block delimiters:** `}` opens a block, `{` closes it. The grammar rule `block = exec_line*` means a block is a sequence of executable lines between the inverted brace pair.

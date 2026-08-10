@@ -494,14 +494,14 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 3.1 Tree-sitter Grammar `[L]`
 
-- [ ] Create `tree-sitter-worng/` directory
-- [ ] Write `grammar.js` covering the full WORNG grammar
-- [ ] Run `tree-sitter generate` to produce `src/parser.c`
-- [ ] Write `queries/highlights.scm` for syntax highlighting
-- [ ] Write `queries/indents.scm` for indentation rules
-- [ ] Write `queries/folds.scm` for code folding
+- [x] Create `tree-sitter-worng/` directory
+- [x] Write `grammar.js` covering the full WORNG grammar
+- [x] Run `tree-sitter generate` to produce `src/parser.c`
+- [x] Write `queries/highlights.scm` for syntax highlighting
+- [x] Write `queries/indents.scm` for indentation rules
+- [x] Write `queries/folds.scm` for code folding
 - [ ] Write `queries/locals.scm` for scope-aware highlighting
-- [ ] Test tree-sitter parser against all example `.wrg` files
+- [x] Test tree-sitter parser against representative `.wrg` files and grammar corpus
 - [ ] Add node.js bindings for `nvim-treesitter` compatibility
 - [ ] Publish as separate repository: `tree-sitter-worng`
 - [ ] Open PR to `nvim-treesitter/nvim-treesitter` to add WORNG parser
