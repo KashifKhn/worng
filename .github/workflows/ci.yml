@@ -102,10 +102,10 @@ jobs:
           cache: true
 
       - name: Fuzz lexer
-        run: go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=30s -fuzzminimizetime=10s
+        run: go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=30s
 
       - name: Fuzz parser
-        run: go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=30s -fuzzminimizetime=10s
+        run: go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=30s
 
       - name: Fuzz interpreter
-        run: go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=30s -fuzzminimizetime=10s
+        run: go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=30s
