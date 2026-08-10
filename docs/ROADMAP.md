@@ -373,46 +373,46 @@ Define the runtime value types in `internal/interpreter/values.go`:
 
 ### 2.1 LSP Server Infrastructure `[M]`
 
-- [ ] Implement JSON-RPC 2.0 transport in `internal/jsonrpc/jsonrpc.go` (separate from LSP logic)
-- [ ] Implement base protocol types in `internal/jsonrpc/baseproto.go` (Request, Response, Notification)
-- [ ] Implement message framing (Content-Length header) in `internal/jsonrpc`
-- [ ] Generate LSP protocol types into `internal/lsp/lsproto/types_generated.go`
-- [ ] Implement LSP server in `internal/lsp/server.go` (uses `internal/jsonrpc`)
-- [ ] Implement request/response/notification routing in `internal/lsp/handler.go`
-- [ ] Implement `initialize` request handler
-- [ ] Implement `initialized` notification handler
-- [ ] Implement `shutdown` request handler
-- [ ] Implement `exit` notification handler
-- [ ] Implement document store: track open files and their content
-- [ ] Implement `textDocument/didOpen` handler
-- [ ] Implement `textDocument/didChange` handler (full sync)
-- [ ] Implement `textDocument/didClose` handler
-- [ ] Unit tests for JSON-RPC framing and dispatch in `internal/jsonrpc`
+- [x] Implement JSON-RPC 2.0 transport in `internal/jsonrpc/jsonrpc.go` (separate from LSP logic)
+- [x] Implement base protocol types in `internal/jsonrpc/baseproto.go` (Request, Response, Notification)
+- [x] Implement message framing (Content-Length header) in `internal/jsonrpc`
+- [x] Generate LSP protocol types into `internal/lsp/lsproto/types_generated.go`
+- [x] Implement LSP server in `internal/lsp/server.go` (uses `internal/jsonrpc`)
+- [x] Implement request/response/notification routing in `internal/lsp/handler.go`
+- [x] Implement `initialize` request handler
+- [x] Implement `initialized` notification handler
+- [x] Implement `shutdown` request handler
+- [x] Implement `exit` notification handler
+- [x] Implement document store: track open files and their content
+- [x] Implement `textDocument/didOpen` handler
+- [x] Implement `textDocument/didChange` handler (full sync)
+- [x] Implement `textDocument/didClose` handler
+- [x] Unit tests for JSON-RPC framing and dispatch in `internal/jsonrpc`
 
 ---
 
 ### 2.2 Diagnostics `[M]`
 
-- [ ] On every document change, re-lex and re-parse (debounced 150ms)
-- [ ] Collect all syntax errors with position info
-- [ ] Map WORNG errors to LSP `Diagnostic` objects
-- [ ] Publish diagnostics via `textDocument/publishDiagnostics`
-- [ ] Add undefined variable detection (simple pass after parsing)
-- [ ] Add unclosed block detection (`}` without matching `{`)
-- [ ] Test: open a file with a syntax error → diagnostic appears in correct position
+- [x] On every document change, re-lex and re-parse (debounced 150ms)
+- [x] Collect all syntax errors with position info
+- [x] Map WORNG errors to LSP `Diagnostic` objects
+- [x] Publish diagnostics via `textDocument/publishDiagnostics`
+- [x] Add undefined variable detection (simple pass after parsing)
+- [x] Add unclosed block detection (`}` without matching `{`)
+- [x] Test: open a file with a syntax error → diagnostic appears in correct position
 
 ---
 
 ### 2.3 Hover Documentation `[M]`
 
-- [ ] Implement `textDocument/hover` handler
-- [ ] For each WORNG keyword, return hover content showing:
+- [x] Implement `textDocument/hover` handler
+- [x] For each WORNG keyword, return hover content showing:
   - What programmers expect it to do
   - What it actually does in WORNG
   - A brief code example
   - Link to spec section
-- [ ] For variable identifiers, show inferred type and current value if determinable statically
-- [ ] Test: hover over `if` → shows inversion explanation
+- [x] For variable identifiers, show inferred type and current value if determinable statically
+- [x] Test: hover over `if` → shows inversion explanation
 
 ---
 
