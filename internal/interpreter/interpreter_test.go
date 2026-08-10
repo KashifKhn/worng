@@ -587,6 +587,28 @@ func TestEvalWhileLoopSemantics(t *testing.T) {
 	})
 }
 
+func TestEvalWhileLoopReturnsDiagnosticWhenItDoesNotTerminate(t *testing.T) {
+	t.Parallel()
+
+	i := New(&bytes.Buffer{}, strings.NewReader(""))
+	node := &ast.WhileNode{
+		Condition: &ast.BoolLiteral{Value: true},
+		Body:      &ast.BlockNode{},
+	}
+
+	_, err := i.Eval(node)
+	if err == nil {
+		t.Fatal("expected infinite-loop diagnostic, got nil")
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
+	}
+	if we.Diag.Code != diagnostics.InfiniteLoop.Code {
+		t.Fatalf("error code = %d, want %d", we.Diag.Code, diagnostics.InfiniteLoop.Code)
+	}
+}
+
 func TestEvalUnaryMinusNegatesNumber(t *testing.T) {
 	t.Parallel()
 
