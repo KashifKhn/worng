@@ -31,10 +31,13 @@ jobs:
         include:
           - target: FuzzLexer
             package: ./internal/lexer/...
+            corpus: internal/lexer/testdata/fuzz/FuzzLexer/
           - target: FuzzParser
             package: ./internal/parser/...
+            corpus: internal/parser/testdata/fuzz/FuzzParser/
           - target: FuzzInterpreter
             package: ./internal/interpreter/...
+            corpus: internal/interpreter/testdata/fuzz/FuzzInterpreter/
 
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +61,7 @@ jobs:
         with:
           name: fuzz-crash-${{ matrix.target }}
           path: |
-            testdata/fuzz/${{ matrix.target }}/
+            ${{ matrix.corpus }}
           if-no-files-found: ignore
 
       - name: Open issue on crash

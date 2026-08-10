@@ -33,6 +33,10 @@ type flowSignal struct {
 // exceed this return a WorngError instead of overflowing the Go call stack.
 const maxEvalDepth = 200
 
+// maxLoopIterations keeps malformed or fuzz-generated programs from running
+// forever when a while condition never becomes truthy.
+const maxLoopIterations = 10000
+
 type Interpreter struct {
 	env         *Environment
 	stdout      io.Writer
@@ -40,6 +44,7 @@ type Interpreter struct {
 	order       ExecutionOrder
 	scopeGlobal map[string]bool
 	modules     map[string]bool
+	loopCount   int
 }
 
 func diagPos(n ast.Node) diagnostics.Position {
@@ -80,6 +85,7 @@ func (i *Interpreter) Run(program *ast.ProgramNode) error {
 	if program == nil {
 		return nil
 	}
+	i.loopCount = 0
 	switch i.order {
 	case OrderTopToBottom:
 		for _, stmt := range program.Statements {
@@ -262,6 +268,10 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 	case *ast.WhileNode:
 	whileLoop:
 		for {
+			if i.loopCount >= maxLoopIterations {
+				return nil, flowSignal{}, diagnostics.New(diagnostics.InfiniteLoop, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+			}
+			i.loopCount++
 			cv, _, err := i.evalNode(n.Condition, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
