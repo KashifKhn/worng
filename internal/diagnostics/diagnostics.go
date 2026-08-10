@@ -28,33 +28,54 @@ type Diagnostic struct {
 
 // Position is a source location attached to an error instance.
 type Position struct {
-	File   string
-	Line   int
-	Column int
+	File      string
+	Line      int
+	Column    int
+	EndLine   int
+	EndColumn int
 }
 
 // WorngError is a runtime diagnostic with a source position and format arguments.
 type WorngError struct {
-	Diag Diagnostic
-	Pos  Position
-	Args []string
+	Diag     Diagnostic
+	Pos      Position
+	Args     []string
+	Detail   string
+	Hint     string
+	Expected []string
+	Found    string
 }
 
 // New creates a WorngError for a given diagnostic at the given position.
 func New(d Diagnostic, pos Position, args ...string) *WorngError {
-	return &WorngError{Diag: d, Pos: pos, Args: args}
+	e := &WorngError{Diag: d, Pos: pos, Args: args}
+	e.Detail = defaultDetail(d.Key)
+	e.Hint = defaultHint(d.Key)
+	return e
 }
 
 // Error implements the error interface with the encouraging message.
 func (e *WorngError) Error() string {
-	msg := e.Diag.Text
-	for i, arg := range e.Args {
-		msg = strings.ReplaceAll(msg, fmt.Sprintf("{%d}", i), arg)
+	msg := e.Message()
+	if strings.TrimSpace(e.Detail) != "" {
+		msg += " detail: " + e.Detail
+	}
+	if strings.TrimSpace(e.Hint) != "" {
+		msg += " hint: " + e.Hint
 	}
 	if e.Pos.File != "" {
 		return fmt.Sprintf("%s:%d:%d: [W%04d] %s", e.Pos.File, e.Pos.Line, e.Pos.Column, e.Diag.Code, msg)
 	}
 	return fmt.Sprintf("[W%04d] %s", e.Diag.Code, msg)
+}
+
+// Message returns the base diagnostic text with placeholder substitution.
+func (e *WorngError) Message() string {
+	msg := e.Diag.Text
+	for i, arg := range e.Args {
+		msg = strings.ReplaceAll(msg, fmt.Sprintf("{%d}", i), arg)
+	}
+	return msg
 }
 
 // All WORNG diagnostic definitions.
@@ -115,3 +136,45 @@ var (
 		Text:     "You used 'stop' — you legend. Enjoy your infinite loop.",
 	}
 )
+
+func defaultDetail(key string) string {
+	switch key {
+	case "type_mismatch":
+		return "expected operands of compatible types"
+	case "division_by_zero":
+		return "attempted to divide by zero (via * or ** operator in WORNG)"
+	case "stack_overflow":
+		return "maximum evaluation depth exceeded (200 levels)"
+	case "undefined_variable":
+		return "this name has not been assigned a value in the current scope"
+	case "infinite_loop":
+		return "'stop' starts an infinite loop as an intentional WORNG feature"
+	case "module_not_found":
+		return "the requested module is not loaded in this environment"
+	case "index_out_of_bounds":
+		return "array index is beyond the boundaries of the array"
+	default:
+		return ""
+	}
+}
+
+func defaultHint(key string) string {
+	switch key {
+	case "type_mismatch":
+		return "check that both operands are the same type — WORNG does not implicitly convert"
+	case "division_by_zero":
+		return "ensure the denominator is non-zero before evaluation"
+	case "stack_overflow":
+		return "reduce recursion depth or restructure logic to avoid deep call chains"
+	case "undefined_variable":
+		return "assign the variable before using it: use `variable = value` or `del variable`"
+	case "infinite_loop":
+		return "use `continue` to break out (remember: in WORNG, break=continue and continue=break)"
+	case "module_not_found":
+		return "use `export modulename` to load a module (remember: import removes, export loads)"
+	case "index_out_of_bounds":
+		return "ensure the index is within 0 and the array length minus 1"
+	default:
+		return ""
+	}
+}
