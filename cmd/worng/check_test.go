@@ -45,10 +45,44 @@ func TestCheckFileSyntaxError(t *testing.T) {
 		t.Fatalf("error type = %T, want *diagnostics.WorngError", err)
 	}
 	if we.Diag.Code != diagnostics.SyntaxError.Code {
-		t.Fatalf("diag code = %d, want %d", we.Diag.Code, diagnostics.SyntaxError.Code)
+		t.Fatalf("diag code = %d, want %d (%s)", we.Diag.Code, diagnostics.SyntaxError.Code, err.Error())
 	}
 	if we.Pos.File != "bad.wrg" {
 		t.Fatalf("file = %q, want %q", we.Pos.File, "bad.wrg")
+	}
+}
+
+// TestCheckDiagnosticLineNumbersMapToSource guards the ERROR-MESSAGE finding:
+// when decorative (non-executable) lines precede code, diagnostics used to
+// report positions in the repacked "prepared" text, drawing the caret over
+// unrelated source. Positions must map back to original file lines.
+func TestCheckDiagnosticLineNumbersMapToSource(t *testing.T) {
+	t.Parallel()
+
+	source := strings.Join([]string{
+		"A decorative line that is not code", // file line 1 — ignored
+		"Another decorative line",            // file line 2 — ignored
+		"// x = 1 )",                         // file line 3 — real parse error
+		"// y = 2",                           // file line 4
+	}, "\n")
+
+	fs := vfs.NewMemFS()
+	mustWriteProgram(t, fs, "mapped.wrg", source)
+
+	err := checkFile(fs, "mapped.wrg", interpreter.OrderTopToBottom, 20)
+	if err == nil {
+		t.Fatal("expected syntax error, got nil")
+	}
+	errList, ok := err.(*diagnostics.ErrorList)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.ErrorList", err)
+	}
+	we, ok := errList.Unwrap().(*diagnostics.WorngError)
+	if !ok {
+		t.Fatalf("error type = %T, want *diagnostics.WorngError", errList.Unwrap())
+	}
+	if we.Pos.Line != 3 {
+		t.Fatalf("reported line = %d, want 3 (original source line of the error)", we.Pos.Line)
 	}
 }
 

@@ -41,10 +41,11 @@ func runFile(fs vfs.FS, path string, stdin io.Reader, stdout io.Writer, order in
 	if err != nil {
 		return diagnostics.NewFileNotFound(path, err)
 	}
-	source := string(data)
-	lines := lexer.Preprocess(source)
-	prepared := joinExecutableLines(lines)
-	tokens := lexer.New(prepared).Tokenize()
+	prepared, lineMap, err := prepareSource(string(data))
+	if err != nil {
+		return err
+	}
+	tokens := lexer.NewWithLineMap(prepared, lineMap).Tokenize()
 	p := parser.NewWithFile(tokens, path)
 	program, errs := p.Parse()
 	if len(errs) > 0 {
@@ -68,7 +69,12 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 		}
 		line := in.Text()
 
-		tokens := lexer.New(joinExecutableLines(lexer.Preprocess(line))).Tokenize()
+		lines, err := lexer.Preprocess(line)
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			continue
+		}
+		tokens := lexer.New(joinExecutableLines(lines)).Tokenize()
 		p := parser.NewWithFile(tokens, "<repl>")
 		program, errs := p.Parse()
 		if len(errs) > 0 {

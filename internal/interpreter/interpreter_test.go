@@ -50,7 +50,11 @@ func FuzzInterpreter(f *testing.F) {
 		// The raw path exercises the lexer/parser resilience; the generated path
 		// reaches deep interpreter logic that random bytes never hit.
 		for _, src := range []string{source, fuzzgen.Program([]byte(source))} {
-			prepared := strings.Join(lexer.Preprocess(src), "\n")
+			lines, perr := lexer.Preprocess(src)
+			if perr != nil {
+				continue
+			}
+			prepared := strings.Join(lines, "\n")
 			if prepared != "" {
 				prepared += "\n"
 			}

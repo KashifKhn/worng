@@ -154,6 +154,10 @@ func specrefAnchor(key string) string {
 		return "execution-model"
 	case "infinite_loop":
 		return "inversion-rules"
+	case "arity_mismatch":
+		return "functions"
+	case "invalid_number":
+		return "numbers"
 	default:
 		return "execution-model"
 	}

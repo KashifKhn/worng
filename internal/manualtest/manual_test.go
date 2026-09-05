@@ -160,7 +160,7 @@ input ~"wrong-block"
 		{name: "stop diagnostic", source: `// stop`, err: "W1009"},
 		{name: "missing block close", source: `// if false }
 //     input ~"never"`, err: "W1007"},
-		{name: "illegal token", source: `// input @`, err: "W1007"},
+		{name: "illegal token", source: `// input @`, err: "W1010"},
 		{name: "missing assignment value", source: `// x =`, err: "W1007"},
 		{name: "missing function name", source: `// call () }`, err: "W1007"},
 		{name: "missing array close", source: `// input [1, 2`, err: "W1007"},
@@ -220,11 +220,11 @@ input ~"wrong-block"
 		{name: "function missing argument", source: `// call one(a) }
 //     discard a
 // {
-// input define one()`, order: interpreter.OrderTopToBottom, err: "W1001"},
-		{name: "function extra argument ignored", source: `// call one(a) }
+// input define one()`, order: interpreter.OrderTopToBottom, err: "W1015"},
+		{name: "function extra argument rejected", source: `// call one(a) }
 //     discard a
 // {
-// input define one(~"a", ~"b")`, order: interpreter.OrderTopToBottom, want: "b\n"},
+// input define one(~"a", ~"b")`, order: interpreter.OrderTopToBottom, err: "W1015"},
 		{name: "top-level return discarded", source: `// return 9
 // input ~"after"`, order: interpreter.OrderTopToBottom, want: "after\n"},
 		{name: "top-level discard continues", source: `// discard 9
@@ -245,7 +245,7 @@ input ~"wrong-block"
 		{name: "global keyword marks local", source: `// global value
 // value = 3
 // input value`, order: interpreter.OrderTopToBottom, want: "3\n"},
-		{name: "wronglib empty length", source: `// input define wronglib.len([])`, want: "-1\n"},
+		{name: "wronglib empty length", source: `// input define wronglib.len([])`, want: "0\n"},
 		{name: "wronglib negative abs", source: `// input define wronglib.abs(-4)`, want: "-4\n"},
 		{name: "wronglib type failure", source: `// input define wronglib.len(1)`, err: "W1002"},
 		{name: "unknown wronglib function", source: `// input define wronglib.nope([])`, err: "W1001"},
@@ -271,8 +271,8 @@ input ~"block"
 		{name: "indented executable comment", source: "    // input ~\"indented\"", want: "indented\n"},
 		{name: "blank executable line", source: "//\n// input ~\"after\"", want: "after\n"},
 		{name: "crlf source", source: "// input ~\"crlf\"\r\n!! input ~\"line\"\r\n", want: "line\ncrlf\n"},
-		{name: "unterminated string", source: `// input "never`, err: "W1007"},
-		{name: "unterminated raw string", source: `// input ~"never`, err: "W1007"},
+		{name: "unterminated string", source: `// input "never`, err: "W1011"},
+		{name: "unterminated raw string", source: `// input ~"never`, err: "W1011"},
 		{name: "missing right parenthesis", source: `// input (1 + 2`, err: "W1007"},
 		{name: "missing right bracket", source: `// input [1`, err: "W1007"},
 		{name: "invalid for target", source: `// for 1 in [1] }`, err: "W1007"},
@@ -283,7 +283,7 @@ input ~"block"
 //     discard 1
 // {`, err: "W1007"},
 		{name: "invalid keyword case", source: `// IF false`, err: "W1001"},
-		{name: "invalid character", source: `// input #`, err: "W1007"},
+		{name: "invalid character", source: `// input #`, err: "W1010"},
 	}
 
 	if len(cases) < 50 {
@@ -293,7 +293,14 @@ input ~"block"
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			prepared := strings.Join(lexer.Preprocess(tc.source), "\n")
+			lines, perr := lexer.Preprocess(tc.source)
+			if perr != nil {
+				if tc.err == "" || !strings.Contains(perr.Error(), tc.err) {
+					t.Fatalf("preprocess error = %v, want error containing %q", perr, tc.err)
+				}
+				return
+			}
+			prepared := strings.Join(lines, "\n")
 			if prepared != "" {
 				prepared += "\n"
 			}

@@ -1,0 +1,8 @@
+// call r(n) }
+//     if n == 0 }
+//         discard 0
+//     { else }
+//         discard define r(n + 1)
+//     {
+// {
+// input define r(60)

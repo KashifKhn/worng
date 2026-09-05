@@ -28,7 +28,10 @@ func formatFile(fs vfs.FS, path string) error {
 	}
 
 	// Minimal formatter for Phase 1: normalize executable lines.
-	lines := lexer.Preprocess(string(data))
+	lines, err := lexer.Preprocess(string(data))
+	if err != nil {
+		return err
+	}
 	for i := range lines {
 		lines[i] = strings.TrimSpace(lines[i])
 	}
