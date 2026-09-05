@@ -30,6 +30,9 @@ export default defineConfig({
     ['link', { rel: 'shortcut icon', href: '/favicon.ico' }],
     ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
 
+    // Go WASM runtime support for the playground
+    ['script', { src: '/wasm_exec.js' }],
+
     // Canonical — injected per-page via transformPageData; this is the fallback
     ['link', { rel: 'canonical', href: SITE_URL }],
 

@@ -44,7 +44,7 @@ make fmt                          # gofmt -w .
 make lint                         # golangci-lint run
 
 # WASM playground build
-make wasm                         # GOOS=js GOARCH=wasm go build -o playground/worng.wasm ./playground
+make wasm                         # GOOS=js GOARCH=wasm → docs/public/worng.wasm + wasm_exec.js
 
 # Install
 make install                      # go install ./cmd/worng
@@ -67,7 +67,8 @@ internal/
   jsonrpc/          jsonrpc.go baseproto.go
   lsp/              server.go handler.go
     lsproto/        types_generated.go               (DO NOT EDIT — generated)
-playground/         main.go                          (build tag: js && wasm)
+  play/             play.go                          (run/check pipeline shared by REPL + WASM)
+playground/         main.go                          (build tag: js && wasm; thin syscall/js glue over internal/play)
 testdata/           golden test fixtures
 _build/             CI scripts                       (excluded from go build ./...)
 docs/               SPEC.md ARCHITECTURE.md ROADMAP.md WEBSITE.md
@@ -328,5 +329,6 @@ These are strict. Violating them creates circular imports or breaks the architec
 | `internal/vfs` | Standard library only |
 | `internal/jsonrpc` | Standard library only |
 | `internal/lsp` | Everything above + `internal/jsonrpc` |
+| `internal/play` | `internal/lexer`, `internal/parser`, `internal/interpreter`, `internal/diagnostics` — no file I/O |
 | `cmd/` | Anything — only place for `os.Exit` and `vfs.OsFS{}` |
-| `playground/` | `internal/interpreter`, `internal/vfs` — compiled with `js && wasm` build tag |
+| `playground/` | `internal/play` — compiled with `js && wasm` build tag |

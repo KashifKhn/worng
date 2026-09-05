@@ -46,7 +46,8 @@ clean:
 	rm -f $(BIN) $(WASM_OUT) coverage.out
 
 wasm:
-	GOOS=js GOARCH=wasm go build -o $(WASM_OUT) ./playground
+	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o docs/public/worng.wasm ./playground
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/public/wasm_exec.js
 
 install:
 	go install ./cmd/worng
