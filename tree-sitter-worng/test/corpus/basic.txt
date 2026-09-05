@@ -172,3 +172,247 @@ This line is decoration.
                                               (primary
                                                 (number)))))))))))))))))))))))
     (newline)))
+
+==================
+New keywords and indexing
+==================
+// inputln ~"line"
+// println ~"prompt"
+// arr = [1, 2, 3]
+// input arr[0]
+// fn = call greet
+
+---
+
+(source_file
+  (statement_line
+    (comment_marker)
+    (inputln_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (raw_string
+                            (string)))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (println_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (raw_string
+                            (string)))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      (identifier)
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (array
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (input_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (index_expression
+                            (identifier)
+                            (expression
+                              (logical_or
+                                (logical_and
+                                  (not_expression
+                                    (is_expression
+                                      (comparison
+                                        (term
+                                          (factor
+                                            (unary
+                                              (primary
+                                                (number)))))))))))))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      (identifier)
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (function_reference
+                            (qualified_identifier
+                              (identifier))))))))))))))
+    (newline)))
+
+==================
+Bare module-qualified calls
+==================
+// input wronglib.sort([3, 1, 2])
+// input wronglib.len([])
+
+---
+
+(source_file
+  (statement_line
+    (comment_marker)
+    (input_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (function_call_expression
+                            (bare_qualified_call
+                              (qualified_identifier
+                                (identifier)
+                                (identifier))
+                              (argument_list
+                                (expression
+                                  (logical_or
+                                    (logical_and
+                                      (not_expression
+                                        (is_expression
+                                          (comparison
+                                            (term
+                                              (factor
+                                                (unary
+                                                  (primary
+                                                    (array
+                                                      (expression
+                                                        (logical_or
+                                                          (logical_and
+                                                            (not_expression
+                                                              (is_expression
+                                                                (comparison
+                                                                  (term
+                                                                    (factor
+                                                                      (unary
+                                                                        (primary
+                                                                          (number)))))))))))
+                                                      (expression
+                                                        (logical_or
+                                                          (logical_and
+                                                            (not_expression
+                                                              (is_expression
+                                                                (comparison
+                                                                  (term
+                                                                    (factor
+                                                                      (unary
+                                                                        (primary
+                                                                          (number)))))))))))
+                                                      (expression
+                                                        (logical_or
+                                                          (logical_and
+                                                            (not_expression
+                                                              (is_expression
+                                                                (comparison
+                                                                  (term
+                                                                    (factor
+                                                                      (unary
+                                                                        (primary
+                                                                          (number))))))))))))))))))))))))))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (input_statement
+      (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (function_call_expression
+                            (bare_qualified_call
+                              (qualified_identifier
+                                (identifier)
+                                (identifier))
+                              (argument_list
+                                (expression
+                                  (logical_or
+                                    (logical_and
+                                      (not_expression
+                                        (is_expression
+                                          (comparison
+                                            (term
+                                              (factor
+                                                (unary
+                                                  (primary
+                                                    (array)))))))))))))))))))))))))
+    (newline)))
