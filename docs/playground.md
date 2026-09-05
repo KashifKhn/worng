@@ -10,7 +10,12 @@ head:
 
 # Playground
 
-Write and run WORNG programs in your browser. Use `Ctrl+Enter` / `Cmd+Enter` to run.
+Write and run WORNG programs in your browser — the full Go interpreter compiled to WebAssembly, running locally in your tab. No install, no server.
+
+- **Run** with the `Run ▶` button or `Ctrl+Enter` / `Cmd+Enter`
+- **Order** — examples run `ttb` (top to bottom); switch to `btt` to feel WORNG's default bottom-to-top execution
+- **Share 🔗** copies a link that embeds your program in the URL
+- Errors show the diagnostic code, source line, and an encouraging hint
 
 <WrongPlayground />
 

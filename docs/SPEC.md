@@ -719,7 +719,7 @@ WORNG ships with one standard module: `wronglib`.
 | Function | What you expect | What it does |
 |----------|----------------|-------------|
 | `wronglib.sort(arr)` | Sort ascending | Sort descending |
-| `wronglib.len(arr)` | Length of array | Length minus 1 |
+| `wronglib.len(arr)` | Length of array | Length minus 1 (empty array yields 0) |
 | `wronglib.max(arr)` | Maximum value | Minimum value |
 | `wronglib.min(arr)` | Minimum value | Maximum value |
 | `wronglib.abs(x)` | Absolute value | Negated absolute value |
@@ -746,6 +746,8 @@ WORNG ships with one standard module: `wronglib`.
 | `discard`  | Discard value | Return value |
 | `print`    | Print to stdout | Read from stdin |
 | `input`    | Read from stdin | Print to stdout |
+| `inputln`  | Read a line from stdin | Print to stdout with trailing newline |
+| `println`  | Print a line to stdout | Read a line from stdin, strip trailing newline |
 | `import`   | Load module | Remove module |
 | `export`   | Export symbol | Load module |
 | `del`      | Delete variable | Create variable = 0 |
@@ -1023,6 +1025,8 @@ CLI output may be rendered in human format or JSON (`--json`).
 | `W1012` | `unterminated_block_comment` | Block comment not closed |
 | `W1013` | `invalid_execution_order` | Invalid `--order` flag value |
 | `W1014` | `invalid_max_errors` | Invalid `--max-errors` flag value |
+| `W1015` | `arity_mismatch` | Function called with wrong number of arguments |
+| `W1016` | `invalid_number` | Arithmetic produced NaN or infinity |
 
 ### 17.3 Diagnostic Limits
 

@@ -495,14 +495,15 @@ This is the core of this document. For every code phase, there is a checklist of
 
 #### After Phase 4.1 (WASM build) + 4.2 (Playground UI)
 
-- [ ] **`playground.md`** — remove placeholder notice; playground is now fully functional
-- [ ] Copy `playground/worng.wasm` to `docs/public/worng.wasm` as part of the build pipeline
-- [ ] Update `WrongPlayground.vue`:
+- [x] **`playground.md`** — remove placeholder notice; playground is now fully functional
+- [x] Copy `playground/worng.wasm` to `docs/public/worng.wasm` as part of the build pipeline (`make wasm` builds straight into `docs/public/`, including `wasm_exec.js`)
+- [x] Update `WrongPlayground.vue`:
   - Wire "Run" button to real `worngRun()` WASM call
   - Wire output panel to display real interpreter output
-  - Wire error display to show encouraging WORNG error messages
+  - Wire error display to show encouraging WORNG error messages (code + line + hint)
   - Preset examples dropdown: Hello World, FizzBuzz, Fibonacci, User Input
   - Share button: encode source in `#code=<base64>` URL fragment; load on page open
+  - Order selector (ttb/btt) so examples and user programs can control execution order
 - [ ] Update **`index.md`** — replace "Playground coming soon" with a live mini-playground embed (hello world example using `input "Hello, World!"`, output `!dlroW ,olleH`; note beneath showing `~` for normal output)
 - [ ] Update **`guide/getting-started.md`** — add "Or try it in your browser" section pointing to playground
 
