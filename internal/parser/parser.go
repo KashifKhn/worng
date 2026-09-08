@@ -25,6 +25,15 @@ type Parser struct {
 	// expressions. The recursive-descent routines never descend past
 	// maxExprDepth levels; deeper programs yield a clean diagnostic.
 	exprDepth int
+	// stmtDepth guards the statement/block recursion
+	// (parseBlockBody → parseStatement → parseIfStmt/parseFuncDefStmt/… →
+	// parseBlockBody). Without it, deeply nested function definitions or if
+	// chains overflow the Go stack before exprDepth ever fires.
+	stmtDepth int
+	// stmtOverflowed is sticky: once a block-nesting overflow fires, the
+	// parser stops consuming input so the single W1004 does not fan out
+	// into thousands of duplicate (or misleading "unclosed block") errors.
+	stmtOverflowed bool
 }
 
 // maxExprDepth bounds expression nesting during parsing. It must stay well
@@ -33,6 +42,11 @@ type Parser struct {
 // It is a var so constrained environments (e.g. GOOS=js, where the callback
 // runs on the browser's JS stack) can lower it at init time.
 var maxExprDepth = 5000
+
+// maxBlockDepth bounds statement/block nesting during parsing. Same stack
+// rationale as maxExprDepth; generous for real programs, far below the
+// ~190k-frame crash threshold.
+var maxBlockDepth = 2000
 
 // SetMaxExprDepth overrides the expression nesting limit. Values <= 0 are
 // ignored. Lower it in environments with small stacks.
@@ -66,6 +80,25 @@ func (p *Parser) leaveExpr(depth int) {
 	p.exprDepth = depth - 1
 }
 
+// enterStmt records entry to one level of statement/block recursion. It
+// returns ok=false when nesting exceeds maxBlockDepth — a W1004 diagnostic
+// is recorded and the caller must bail out without recursing further.
+func (p *Parser) enterStmt(tok lexer.Token) bool {
+	if p.stmtDepth >= maxBlockDepth {
+		err := diagnostics.New(diagnostics.StackOverflow, p.tokenPos(tok))
+		err.Detail = "block nesting too deep to parse"
+		err.Hint = "split deeply nested blocks into smaller functions"
+		p.errors = append(p.errors, err)
+		return false
+	}
+	p.stmtDepth++
+	return true
+}
+
+func (p *Parser) leaveStmt() {
+	p.stmtDepth--
+}
+
 func New(tokens []lexer.Token) *Parser {
 	return NewWithFile(tokens, "")
 }
@@ -77,7 +110,7 @@ func NewWithFile(tokens []lexer.Token, file string) *Parser {
 func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 	program := &ast.ProgramNode{Position: ast.Position{Line: 1, Column: 1}}
 
-	for !p.at(lexer.TOKEN_EOF) {
+	for !p.at(lexer.TOKEN_EOF) && !p.stmtOverflowed {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_EOF) {
 			break
@@ -900,10 +933,15 @@ func (p *Parser) parseQualifiedCallFromIdent(first string, pos ast.Position) ast
 
 func (p *Parser) parseBlockBody() *ast.BlockNode {
 	openTok := p.prev()
+	if !p.enterStmt(openTok) {
+		p.stmtOverflowed = true
+		return nil
+	}
+	defer p.leaveStmt()
 	body := &ast.BlockNode{Position: toASTPos(openTok)}
 	p.blockDepth++
 
-	for !p.at(lexer.TOKEN_EOF) {
+	for !p.at(lexer.TOKEN_EOF) && !p.stmtOverflowed {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_RBRACE) {
 			p.next()
@@ -926,6 +964,11 @@ func (p *Parser) parseBlockBody() *ast.BlockNode {
 	}
 
 	p.blockDepth--
+	if p.stmtOverflowed {
+		// Unwinding after the depth guard fired; the W1004 already
+		// explains the failure, so no "unclosed block" noise is added.
+		return nil
+	}
 	err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(openTok))
 	err.Found = "<eof>"
 	err.Detail = "unclosed block — missing closing '{'"
