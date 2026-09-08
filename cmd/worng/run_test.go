@@ -313,6 +313,7 @@ func TestParseExecutionFlags(t *testing.T) {
 		wantOrd  interpreter.ExecutionOrder
 		wantJSON bool
 		wantMax  int
+		wantRepl bool
 		wantRest []string
 		wantErr  bool
 	}{
@@ -322,12 +323,18 @@ func TestParseExecutionFlags(t *testing.T) {
 		{name: "max errors", args: []string{"--max-errors=7", "prog.wrg"}, wantOrd: interpreter.OrderBottomToTop, wantMax: 7, wantRest: []string{"prog.wrg"}},
 		{name: "invalid max errors", args: []string{"--max-errors=abc", "prog.wrg"}, wantErr: true},
 		{name: "invalid order", args: []string{"--order=nope", "prog.wrg"}, wantErr: true},
+		// --repl may appear in any position among the flags (Round-5 finding:
+		// `run --repl --order=ttb` used to be rejected).
+		{name: "repl first", args: []string{"--repl", "--order=ttb"}, wantOrd: interpreter.OrderTopToBottom, wantRepl: true, wantMax: 20, wantRest: []string{}},
+		{name: "repl last", args: []string{"--order=ttb", "--repl"}, wantOrd: interpreter.OrderTopToBottom, wantRepl: true, wantMax: 20, wantRest: []string{}},
+		{name: "repl alone", args: []string{"--repl"}, wantOrd: interpreter.OrderBottomToTop, wantRepl: true, wantMax: 20, wantRest: []string{}},
+		{name: "repl with json", args: []string{"--json", "--repl"}, wantOrd: interpreter.OrderBottomToTop, wantJSON: true, wantRepl: true, wantMax: 20, wantRest: []string{}},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			ord, jsonOut, maxErrs, rest, err := parseExecutionFlags(tc.args)
+			ord, jsonOut, maxErrs, repl, rest, err := parseExecutionFlags(tc.args)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -345,6 +352,9 @@ func TestParseExecutionFlags(t *testing.T) {
 			}
 			if maxErrs != tc.wantMax {
 				t.Fatalf("max errors = %d, want %d", maxErrs, tc.wantMax)
+			}
+			if repl != tc.wantRepl {
+				t.Fatalf("repl = %v, want %v", repl, tc.wantRepl)
 			}
 			if len(rest) != len(tc.wantRest) {
 				t.Fatalf("rest len = %d, want %d", len(rest), len(tc.wantRest))
@@ -395,6 +405,50 @@ func TestJoinExecutableLines(t *testing.T) {
 				t.Fatalf("joinExecutableLines() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRunFileRuntimeErrorCarriesFileAndPosition(t *testing.T) {
+	t.Parallel()
+
+	// Round-5 finding: runtime diagnostics dropped file/line/column, so
+	// JSON consumers got an inconsistent envelope versus parse errors.
+	fs := vfs.NewMemFS()
+	mustWriteProgram(t, fs, "undef.wrg", "// input nosuchvar\n")
+
+	var out bytes.Buffer
+	err := runFile(fs, "undef.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20)
+	if err == nil {
+		t.Fatal("expected undefined-variable error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "undef.wrg:") {
+		t.Fatalf("runtime error should include file: %q", msg)
+	}
+	if !strings.Contains(msg, "W1001") {
+		t.Fatalf("runtime error should be W1001: %q", msg)
+	}
+}
+
+func TestRunFileRuntimeErrorJSONHasPositionEnvelope(t *testing.T) {
+	t.Parallel()
+
+	fs := vfs.NewMemFS()
+	mustWriteProgram(t, fs, "undef.wrg", "// input nosuchvar\n")
+
+	var out bytes.Buffer
+	err := runFile(fs, "undef.wrg", strings.NewReader(""), &out, interpreter.OrderBottomToTop, 20)
+	if err == nil {
+		t.Fatal("expected undefined-variable error")
+	}
+
+	var jout bytes.Buffer
+	printDiagnostics(&jout, err, fs, "undef.wrg", true)
+	got := jout.String()
+	for _, want := range []string{`"file": "undef.wrg"`, `"line": 1`, `"column": 7`, `"endLine": 1`, `"endColumn": 7`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("runtime JSON missing %s: %q", want, got)
+		}
 	}
 }
 

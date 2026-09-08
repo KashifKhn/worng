@@ -14,14 +14,18 @@ import (
 )
 
 func runCommand(args []string) int {
-	order, jsonOutput, maxErrors, rest, err := parseExecutionFlags(args)
+	order, jsonOutput, maxErrors, repl, rest, err := parseExecutionFlags(args)
 	if err != nil {
 		printDiagnostics(os.Stderr, err, vfs.OsFS{}, "", jsonOutput)
 		return 2
 	}
 	args = rest
 
-	if len(args) == 1 && args[0] == "--repl" {
+	if repl {
+		if len(args) != 0 {
+			fmt.Fprintln(os.Stderr, "usage: worng run [--order=btt|ttb] --repl")
+			return 2
+		}
 		return runREPL(os.Stdin, os.Stdout, os.Stderr, order)
 	}
 	if len(args) != 1 {
@@ -53,7 +57,7 @@ func runFile(fs vfs.FS, path string, stdin io.Reader, stdout io.Writer, order in
 		return diagnostics.NewErrorList(errs)
 	}
 
-	it := interpreter.NewWithOrder(stdout, stdin, order)
+	it := interpreter.NewWithOrderAndFile(stdout, stdin, order, path)
 	return it.Run(program)
 }
 
@@ -105,10 +109,14 @@ func parseOrderFlag(arg string) (interpreter.ExecutionOrder, bool, error) {
 	return order, true, nil
 }
 
-func parseExecutionFlags(args []string) (interpreter.ExecutionOrder, bool, int, []string, error) {
+// parseExecutionFlags extracts leading --order/--json/--max-errors/--repl
+// flags. Flags may appear in any order; the first non-flag argument starts
+// the positional rest.
+func parseExecutionFlags(args []string) (interpreter.ExecutionOrder, bool, int, bool, []string, error) {
 	order := interpreter.OrderBottomToTop
 	jsonOutput := false
 	maxErrors := 20
+	repl := false
 	i := 0
 	for i < len(args) {
 		if args[i] == "--json" {
@@ -116,11 +124,16 @@ func parseExecutionFlags(args []string) (interpreter.ExecutionOrder, bool, int, 
 			i++
 			continue
 		}
+		if args[i] == "--repl" {
+			repl = true
+			i++
+			continue
+		}
 		if len(args[i]) >= len("--max-errors=") && args[i][:len("--max-errors=")] == "--max-errors=" {
 			raw := args[i][len("--max-errors="):]
 			n, ok := parseNonNegativeInt(raw)
 			if !ok {
-				return "", jsonOutput, 0, nil, diagnostics.NewInvalidMaxErrors(raw)
+				return "", jsonOutput, 0, repl, nil, diagnostics.NewInvalidMaxErrors(raw)
 			}
 			maxErrors = n
 			i++
@@ -128,7 +141,7 @@ func parseExecutionFlags(args []string) (interpreter.ExecutionOrder, bool, int, 
 		}
 		parsedOrder, consumed, err := parseOrderFlag(args[i])
 		if err != nil {
-			return "", jsonOutput, 0, nil, err
+			return "", jsonOutput, 0, repl, nil, err
 		}
 		if consumed {
 			order = parsedOrder
@@ -137,7 +150,7 @@ func parseExecutionFlags(args []string) (interpreter.ExecutionOrder, bool, int, 
 		}
 		break
 	}
-	return order, jsonOutput, maxErrors, args[i:], nil
+	return order, jsonOutput, maxErrors, repl, args[i:], nil
 }
 
 func parseNonNegativeInt(s string) (int, bool) {

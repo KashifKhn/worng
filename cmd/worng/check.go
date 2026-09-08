@@ -12,7 +12,7 @@ import (
 )
 
 func checkCommand(args []string) int {
-	order, jsonOutput, maxErrors, rest, err := parseExecutionFlags(args)
+	order, jsonOutput, maxErrors, _, rest, err := parseExecutionFlags(args)
 	if err != nil {
 		printDiagnostics(os.Stderr, err, vfs.OsFS{}, "", jsonOutput)
 		return 2
