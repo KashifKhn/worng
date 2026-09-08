@@ -174,7 +174,7 @@ module.exports = grammar({
     )),
     array: $ => seq('[', optional(commaSep1($.expression)), ']'),
     wildcard: _ => '_',
-    number: _ => /-?[0-9]+(\.[0-9]+)?/,
+    number: _ => /-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?/,
     string: _ => choice(
       seq('"', repeat(choice(/[^"\\\n]/, /\\./)), '"'),
       seq("'", repeat(choice(/[^'\\\n]/, /\\./)), "'"),

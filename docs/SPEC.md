@@ -218,6 +218,8 @@ WORNG supports integer and floating-point numbers.
 - You write `-7` → stored as `7`
 - You write `0` → stored as `0`
 
+**Scientific notation** is supported: `1e3`, `2.5e2`, `1E+2`, `1e-2` are single number literals. The exponent marker must be followed by a digit (optionally with a `+`/`-` sign); otherwise it lexes as a plain number followed by an identifier (`1e` is `1` then `e`).
+
 **On output:** Numbers are negated again before display, so they appear "normal" to the programmer... unless arithmetic has been applied (see Section 6).
 
 ```

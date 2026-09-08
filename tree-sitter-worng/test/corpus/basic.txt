@@ -416,3 +416,79 @@ Bare module-qualified calls
                                                   (primary
                                                     (array)))))))))))))))))))))))))
     (newline)))
+
+==================
+Scientific notation numbers
+==================
+// x = 1e3
+// y = 2.5e2
+// z = 1E+2
+// w = 1e-2
+
+---
+
+(source_file
+  (statement_line
+    (comment_marker)
+    (assignment
+      name: (identifier)
+      value: (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (number))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      name: (identifier)
+      value: (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (number))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      name: (identifier)
+      value: (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (number))))))))))))
+    (newline))
+  (statement_line
+    (comment_marker)
+    (assignment
+      name: (identifier)
+      value: (expression
+        (logical_or
+          (logical_and
+            (not_expression
+              (is_expression
+                (comparison
+                  (term
+                    (factor
+                      (unary
+                        (primary
+                          (number))))))))))))
+    (newline)))

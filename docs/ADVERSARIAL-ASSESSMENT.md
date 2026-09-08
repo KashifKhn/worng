@@ -473,3 +473,28 @@ $ echo $?                                               # 0 (silent)
 - Deep unary chains (`-----…5`) and deep parens are properly guarded → clean `W1004` (no crash).
 - Runtime errors (arity `W1015`, index `W1005`, infinite-loop `W1009`) render without source line numbers (pre-existing behavior, separate from the parser line-mapping fix).
 - All "NOT A BUG / EXPECTED" behaviors from Round 1 (div-by-zero error, `while true` once, mode ordering, etc.) still hold on the fixed build.
+
+---
+
+## 11. Phase 6 Round 6 — Fix verification (all outstanding findings re-tested)
+
+All findings still open at HEAD `471f9dd` were fixed and independently verified against a fresh build: the Round-3/4 items below (return-in-loop, statement-recursion crash, program-wide loopCount, fmt marker stripping, match-on-arrays, scientific notation, fractional index) plus the Round-5 reported items (runtime JSON envelope, `--repl` flag ordering). Full `go test ./... -race` suite green (13 packages incl. golden), 15s fuzz bursts on lexer/parser/interpreter clean, tree-sitter corpus 7/7, WASM playground builds, and the 224-line `store.wrg` still runs clean (EXIT 0) — plus it survives `worng fmt` byte-identically (fmt is now semantics-preserving).
+
+| Finding | Fixed? | Evidence |
+|---|---|---|
+| Statement/block parser recursion crash (§9 CRITICAL) | ✅ | 400k-nested-fn repro (`/tmp/statement_crash.wrg`): `check` and `run` now return clean `[W1004] block nesting too deep to parse` at `maxBlockDepth=2000`, exit 1. No crash. `enterStmt`/`leaveStmt` guard in `parseBlockBody` with a sticky-overflow flag preventing diagnostic fan-out. |
+| `return` swallowed in for/while (§8 HIGH) | ✅ | Repro now prints `null` only (loop unwinds, `after-loop` unreachable). `while 0 } return 5 {` returns cleanly instead of W1009. `flowReturn` handled in both loop switches; `discard`-in-loop symmetry kept. |
+| Program-wide `loopCount` (§9 MEDIUM) | ✅ | Two sequential 6000-iteration while loops (fn called twice) prints `done`; nested 101×101-bounded whiles complete. Counter is now per-loop (`loopCount := 0` in WhileNode). Single runaway `while 0 }{` still trips W1009. |
+| `match` on arrays never matches (§8 MEDIUM) | ✅ | `match [1,2] } case [1,2] … case _` now skips the matching case body and runs the wildcard; non-equal arrays run the case body; nested arrays compare element-wise. `valuesEqual` gained an array case. |
+| `worng fmt` strips markers (§9 HIGH) | ✅ | `fmt` rewritten marker-preserving: `//   x = 5` → `// x = 5`; markers alone stay bare (`//`); block comments keep `/*`/`*/` structure; plain text untouched; unterminated block comment refuses with W1012. 224-line store program: run → fmt → run gives identical output. `fmt_test.go` now asserts preservation (old test encoded the destructive behavior). |
+| Scientific notation unlexed (§8 LOW) | ✅ | `1e3`→1000, `2.5e2`→250, `1E+2`→100, `1e-2`→0.01; `1e` stays NUMBER+IDENT (W1001 on `e`). tree-sitter grammar + corpus updated (7/7 pass). |
+| Fractional index truncation (§8 LOW) | ✅ | `a[1.999]` and `a[-1.1]` now raise W1002 "expected whole number in array index" instead of silently truncating; whole-number indexes (literal and computed) unchanged. |
+| Runtime JSON missing file/line/column (Round 5) | ✅ | `run --json` on a runtime W1001 now includes `file`, `line`, `column`, `endLine`, `endColumn` — the same envelope as parse errors. `Interpreter` gained `NewWithOrderAndFile` + `stampFile`. |
+| `--repl` must come last (Round 5) | ✅ | `run --repl --order=ttb`, `--order=ttb --repl`, `--json --repl` all accepted; `--repl` plus a file argument is rejected. |
+
+Not fixed (documented, by design or deferred):
+- REPL multi-line blocks: still one parse+run per line (architectural; REPL shares a single Interpreter instance, so nested `}`/`{` across lines can't assemble).
+- `and`/`or` do not short-circuit: WORNG has no documented short-circuit rule; both operands always evaluate (documented footgun, SPEC §6.3 silent on evaluation order).
+- golangci-lint v1 binary vs v2 config in this environment — tooling mismatch, not a code issue; `go vet ./...` clean.
+
+New golden fixtures: `scientific_notation`, `while_sequential_bounded`, `return_in_loop`, `match_array`, `fractional_index` (W1002 error case). New unit tests: parser `block_depth_test.go`, interpreter `round5_regression_test.go`, cmd `fmt_test.go` (preservation), `run_test.go` (repl flags, runtime-JSON envelope).
