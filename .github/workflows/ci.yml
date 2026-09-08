@@ -69,7 +69,9 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.10.1
+          # Keep this at a version built with the current stable Go:
+          # older builds cannot decode newer stdlib export data.
+          version: v2.13.2
 
   build:
     name: Build
