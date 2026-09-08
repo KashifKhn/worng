@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       fuzztime:
-        description: "Fuzz duration per target (e.g. 10m, 1h)"
+        description: "Fuzz duration per target (e.g. 30m, 1h, 2h)"
         required: false
-        default: "10m"
+        default: "1h"
 
 permissions:
   contents: read
@@ -25,6 +25,9 @@ jobs:
   fuzz:
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
+    # Hard stop so a wedged target cannot burn runner hours past
+    # fuzztime + minimization overhead.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +52,9 @@ jobs:
 
       - name: Fuzz ${{ matrix.target }}
         run: |
-          FUZZTIME="${{ github.event.inputs.fuzztime || '10m' }}"
+          # Scheduled runs have no inputs, so this fallback IS the nightly
+          # duration — 1h per target balances coverage against runner cost.
+          FUZZTIME="${{ github.event.inputs.fuzztime || '1h' }}"
           go test ${{ matrix.package }} \
             -fuzz=${{ matrix.target }} \
             -fuzztime=${FUZZTIME} \

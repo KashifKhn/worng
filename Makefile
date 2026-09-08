@@ -21,9 +21,9 @@ test-fuzz:
 	go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=30s -fuzzminimizetime=10s -parallel=8
 
 test-fuzz-long:
-	go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=5m -fuzzminimizetime=30s -parallel=8
-	go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=5m -fuzzminimizetime=30s -parallel=8
-	go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=5m -fuzzminimizetime=30s -parallel=8
+	go test ./internal/lexer/... -fuzz=FuzzLexer -fuzztime=1h -fuzzminimizetime=30s -parallel=8
+	go test ./internal/parser/... -fuzz=FuzzParser -fuzztime=1h -fuzzminimizetime=30s -parallel=8
+	go test ./internal/interpreter/... -fuzz=FuzzInterpreter -fuzztime=1h -fuzzminimizetime=30s -parallel=8
 
 test-coverage:
 	go test ./... -race -coverprofile=coverage.out
