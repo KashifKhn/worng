@@ -70,8 +70,10 @@ type Interpreter struct {
 	order       ExecutionOrder
 	scopeGlobal map[string]bool
 	modules     map[string]bool
-	loopCount   int
 	callDepth   int
+	// sourceFile, when set, is stamped on runtime diagnostics so machine
+	// consumers get the same file/line/column envelope as parse errors.
+	sourceFile string
 }
 
 func diagPos(n ast.Node) diagnostics.Position {
@@ -108,26 +110,56 @@ func NewWithOrder(stdout io.Writer, stdin io.Reader, order ExecutionOrder) *Inte
 	}
 }
 
+// NewWithOrderAndFile is NewWithOrder with a source file path stamped on
+// runtime diagnostics, so JSON consumers get the same file/line/column
+// envelope for runtime errors as for parse errors.
+func NewWithOrderAndFile(stdout io.Writer, stdin io.Reader, order ExecutionOrder, file string) *Interpreter {
+	it := NewWithOrder(stdout, stdin, order)
+	it.sourceFile = file
+	return it
+}
+
 func (i *Interpreter) Run(program *ast.ProgramNode) error {
 	if program == nil {
 		return nil
 	}
-	i.loopCount = 0
 	switch i.order {
 	case OrderTopToBottom:
 		for _, stmt := range program.Statements {
 			if _, err := i.Eval(stmt); err != nil {
-				return err
+				return i.stampFile(err)
 			}
 		}
 	default:
 		for idx := len(program.Statements) - 1; idx >= 0; idx-- {
 			if _, err := i.Eval(program.Statements[idx]); err != nil {
-				return err
+				return i.stampFile(err)
 			}
 		}
 	}
 	return nil
+}
+
+// stampFile fills in the file (and derived envelope) on a runtime diagnostic
+// so machine consumers see file/line/column for runtime errors too.
+func (i *Interpreter) stampFile(err error) error {
+	if i.sourceFile == "" {
+		return err
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		return err
+	}
+	if we.Pos.File == "" {
+		we.Pos.File = i.sourceFile
+	}
+	if we.Pos.Line > 0 && we.Pos.EndLine <= 0 {
+		we.Pos.EndLine = we.Pos.Line
+	}
+	if we.Pos.Column > 0 && we.Pos.EndColumn <= 0 {
+		we.Pos.EndColumn = we.Pos.Column
+	}
+	return we
 }
 
 func (i *Interpreter) Eval(node ast.Node) (Value, error) {
@@ -233,7 +265,13 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		if !ok {
 			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(idxv), "array index")
 		}
-		pos := int(displayNumber(idx))
+		// Fractional indices are not silently truncated: a[1.999] used to
+		// quietly become a[1]. Only whole numbers index arrays.
+		fidx := displayNumber(idx)
+		if fidx != math.Trunc(fidx) {
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"whole number"}, valueType(idxv), "array index")
+		}
+		pos := int(fidx)
 		if pos < 0 || pos >= len(arr.Elements) {
 			return nil, flowSignal{}, diagnostics.NewIndexOutOfBounds(
 				diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column},
@@ -367,12 +405,17 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		return Null, flowSignal{}, nil
 
 	case *ast.WhileNode:
+		// loopCount bounds a single while loop. A program-wide counter
+		// misfired on legitimate programs whose loops collectively exceed
+		// maxLoopIterations (e.g. two sequential bounded 6000-iteration
+		// loops), so it is scoped per loop instance.
+		loopCount := 0
 	whileLoop:
 		for {
-			if i.loopCount >= maxLoopIterations {
+			if loopCount >= maxLoopIterations {
 				return nil, flowSignal{}, diagnostics.New(diagnostics.InfiniteLoop, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
 			}
-			i.loopCount++
+			loopCount++
 			cv, _, err := i.evalNode(n.Condition, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
@@ -390,6 +433,9 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 			case flowContinue:
 				break whileLoop
 			case flowDiscard:
+				return Null, sig, nil
+			case flowReturn:
+				// return unwinds out of the loop to the enclosing function.
 				return Null, sig, nil
 			}
 		}
@@ -426,6 +472,9 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 			case flowContinue:
 				return Null, flowSignal{}, nil
 			case flowDiscard:
+				return Null, sig, nil
+			case flowReturn:
+				// return unwinds out of the loop to the enclosing function.
 				return Null, sig, nil
 			}
 		}
@@ -879,6 +928,20 @@ func valuesEqual(a, b Value) bool {
 	case *NullValue:
 		_, ok := b.(*NullValue)
 		return ok
+	case *ArrayValue:
+		// Element-wise structural equality (raw flags on nested strings are
+		// ignored, matching == semantics). Without this case, array subjects
+		// and array patterns in match could never be equal.
+		bv, ok := b.(*ArrayValue)
+		if !ok || len(av.Elements) != len(bv.Elements) {
+			return false
+		}
+		for idx, ae := range av.Elements {
+			if !valuesEqual(ae, bv.Elements[idx]) {
+				return false
+			}
+		}
+		return true
 	default:
 		return false
 	}

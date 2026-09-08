@@ -1,0 +1,9 @@
+// x = [1, 2]
+// match x }
+// case [1, 2] }
+//     input ~"case-body"
+// {
+// case _ }
+//     input ~"wildcard"
+// {
+// {

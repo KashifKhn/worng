@@ -1,0 +1,13 @@
+// call A() }
+//     n = 6000
+//     d = 0
+//     while n >= 0 }
+//         d = 0
+//         d = n
+//         n = 0
+//         n = d + 1
+//     {
+// {
+// define A()
+// define A()
+// input ~"done"

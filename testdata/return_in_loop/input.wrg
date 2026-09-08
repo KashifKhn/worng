@@ -1,0 +1,9 @@
+// call f() }
+//     for x in [1, 2, 3] }
+//         return 99
+//         input ~"no"
+//     {
+//     input ~"after-loop"
+// {
+// x = define f()
+// input x
