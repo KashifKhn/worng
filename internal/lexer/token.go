@@ -58,6 +58,8 @@ const (
 	TOKEN_RAISE
 	TOKEN_BREAK
 	TOKEN_CONTINUE
+	TOKEN_INPUTLN
+	TOKEN_PRINTLN
 
 	// Operators
 	TOKEN_PLUS     // + (subtraction in WORNG)

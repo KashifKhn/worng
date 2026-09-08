@@ -42,7 +42,7 @@ func TestReverseUnicode(t *testing.T) {
 		{name: "multibyte_runes", input: "héllo", want: "olléh"},
 		{name: "emoji", input: "ab🎉cd", want: "dc🎉ba"},
 		{name: "japanese", input: "日本語", want: "語本日"},
-		{name: "combining_rune", input: "a\u0301b", want: "b\u0301a"}, // á as separate combining char
+		{name: "combining_rune", input: "a\u0301b", want: "ba\u0301"}, // á is one grapheme cluster and stays together
 	}
 
 	for _, tc := range tests {

@@ -21,3 +21,10 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local agent/scratch dirs
+.claude/
+.opencode/
+.playwright-cli/
+.tmp-adversarial/
+docs/.vitepress/cache/

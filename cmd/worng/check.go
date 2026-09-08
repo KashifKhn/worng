@@ -12,7 +12,7 @@ import (
 )
 
 func checkCommand(args []string) int {
-	order, jsonOutput, maxErrors, rest, err := parseExecutionFlags(args)
+	order, jsonOutput, maxErrors, _, rest, err := parseExecutionFlags(args)
 	if err != nil {
 		printDiagnostics(os.Stderr, err, vfs.OsFS{}, "", jsonOutput)
 		return 2
@@ -36,8 +36,11 @@ func checkFile(fs vfs.FS, path string, _ interpreter.ExecutionOrder, maxErrors i
 	if err != nil {
 		return diagnostics.NewFileNotFound(path, err)
 	}
-	lines := lexer.Preprocess(string(data))
-	tokens := lexer.New(joinExecutableLines(lines)).Tokenize()
+	prepared, lineMap, err := prepareSource(string(data))
+	if err != nil {
+		return err
+	}
+	tokens := lexer.NewWithLineMap(prepared, lineMap).Tokenize()
 	p := parser.NewWithFile(tokens, path)
 	_, errs := p.Parse()
 	if len(errs) > 0 {

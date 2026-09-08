@@ -9,6 +9,8 @@ module.exports = grammar({
 
   conflicts: $ => [
     [$.function_call_statement, $.function_call_expression],
+    [$.function_definition, $.qualified_identifier],
+    [$.primary, $.qualified_identifier],
   ],
 
   rules: {
@@ -49,7 +51,9 @@ module.exports = grammar({
       $.function_definition,
       $.assignment,
       $.input_statement,
+      $.inputln_statement,
       $.print_statement,
+      $.println_statement,
       $.function_call_statement,
       $.return_statement,
       $.discard_statement,
@@ -105,7 +109,9 @@ module.exports = grammar({
 
     assignment: $ => seq(field('name', $.identifier), '=', field('value', $.expression)),
     input_statement: $ => seq('input', $.expression),
+    inputln_statement: $ => prec.right(10, seq('inputln', optional($.expression))),
     print_statement: $ => prec.right(10, seq('print', optional($.expression))),
+    println_statement: $ => prec.right(10, seq('println', optional($.expression))),
     function_call_statement: $ => seq('define', $.qualified_identifier, '(', optional($.argument_list), ')'),
     return_statement: $ => prec.right(10, seq('return', optional($.expression))),
     discard_statement: $ => seq('discard', $.expression),
@@ -147,15 +153,28 @@ module.exports = grammar({
       $.null,
       $.array,
       $.function_call_expression,
+      $.function_reference,
       $.identifier,
       $.parenthesized_expression,
+      $.index_expression,
     ),
 
     parenthesized_expression: $ => seq('(', $.expression, ')'),
-    function_call_expression: $ => seq('define', $.qualified_identifier, '(', optional($.argument_list), ')'),
+    function_call_expression: $ => choice(
+      seq('define', $.qualified_identifier, '(', optional($.argument_list), ')'),
+      $.bare_qualified_call,
+    ),
+    bare_qualified_call: $ => seq($.qualified_identifier, '(', optional($.argument_list), ')'),
+    function_reference: $ => seq('call', $.qualified_identifier),
+    index_expression: $ => prec.left(9, seq(
+      field('collection', choice($.identifier, $.parenthesized_expression, $.array, $.function_call_expression, $.function_reference)),
+      '[',
+      field('index', $.expression),
+      ']',
+    )),
     array: $ => seq('[', optional(commaSep1($.expression)), ']'),
     wildcard: _ => '_',
-    number: _ => /-?[0-9]+(\.[0-9]+)?/,
+    number: _ => /-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?/,
     string: _ => choice(
       seq('"', repeat(choice(/[^"\\\n]/, /\\./)), '"'),
       seq("'", repeat(choice(/[^'\\\n]/, /\\./)), "'"),

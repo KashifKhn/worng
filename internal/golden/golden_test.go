@@ -96,8 +96,17 @@ func runGoldenCase(mem vfs.FS, inputPath string, order interpreter.ExecutionOrde
 		return "", err
 	}
 
-	prepared := joinExecutableLines(lexer.Preprocess(string(data)))
-	tokens := lexer.New(prepared).Tokenize()
+	lines, err := lexer.PreprocessWithLines(string(data))
+	if err != nil {
+		return "", err
+	}
+
+	lineMap := make([]int, len(lines))
+	for idx, l := range lines {
+		lineMap[idx] = l.SourceLine
+	}
+	prepared := joinExecutableLines(exportLineContents(lines))
+	tokens := lexer.NewWithLineMap(prepared, lineMap).Tokenize()
 	p := parser.NewWithFile(tokens, inputPath)
 	program, errs := p.Parse()
 	if len(errs) > 0 {
@@ -130,6 +139,14 @@ func joinExecutableLines(lines []string) string {
 		return ""
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+func exportLineContents(lines []lexer.ExecLine) []string {
+	out := make([]string, len(lines))
+	for idx, l := range lines {
+		out[idx] = l.Content
+	}
+	return out
 }
 
 func osReadFile(path string) ([]byte, error) {

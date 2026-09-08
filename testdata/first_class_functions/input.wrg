@@ -1,0 +1,5 @@
+// call greet() }
+//     input ~"hi"
+// {
+// fn = call greet
+// define fn()

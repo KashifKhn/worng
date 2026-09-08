@@ -1,0 +1,4 @@
+// input "abc" == "abd"
+// input "abc" == "abc"
+// input "abc" != "abc"
+// input "abc" < "abd"

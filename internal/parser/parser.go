@@ -21,6 +21,82 @@ type Parser struct {
 	errors     []error
 	sourceFile string
 	blockDepth int
+	// exprDepth guards against stack exhaustion from pathologically nested
+	// expressions. The recursive-descent routines never descend past
+	// maxExprDepth levels; deeper programs yield a clean diagnostic.
+	exprDepth int
+	// stmtDepth guards the statement/block recursion
+	// (parseBlockBody → parseStatement → parseIfStmt/parseFuncDefStmt/… →
+	// parseBlockBody). Without it, deeply nested function definitions or if
+	// chains overflow the Go stack before exprDepth ever fires.
+	stmtDepth int
+	// stmtOverflowed is sticky: once a block-nesting overflow fires, the
+	// parser stops consuming input so the single W1004 does not fan out
+	// into thousands of duplicate (or misleading "unclosed block") errors.
+	stmtOverflowed bool
+}
+
+// maxExprDepth bounds expression nesting during parsing. It must stay well
+// below the Go stack's tolerance for parser recursion (~190k frames would
+// crash the process), while permitting any reasonable hand-written program.
+// It is a var so constrained environments (e.g. GOOS=js, where the callback
+// runs on the browser's JS stack) can lower it at init time.
+var maxExprDepth = 5000
+
+// maxBlockDepth bounds statement/block nesting during parsing. Same stack
+// rationale as maxExprDepth; generous for real programs, far below the
+// ~190k-frame crash threshold.
+var maxBlockDepth = 2000
+
+// SetMaxExprDepth overrides the expression nesting limit. Values <= 0 are
+// ignored. Lower it in environments with small stacks.
+func SetMaxExprDepth(n int) {
+	if n > 0 {
+		maxExprDepth = n
+	}
+}
+
+// enterExpr records entry to a recursive expression routine. It returns the
+// depth to pass to the matching leaveExpr call, or ok=false when nesting
+// exceeds maxExprDepth — in that case a diagnostic is recorded and callers
+// must bail out without recursing further.
+func (p *Parser) enterExpr() (int, bool) {
+	if p.exprDepth >= maxExprDepth {
+		tok := p.cur()
+		err := diagnostics.New(diagnostics.StackOverflow, p.tokenPos(tok))
+		err.Detail = "expression nesting too deep to parse"
+		err.Hint = "split this expression into smaller pieces"
+		p.errors = append(p.errors, err)
+		// Consume the rest of the line so one overflow does not fan out
+		// into thousands of duplicate diagnostics.
+		p.syncToNextLine()
+		return 0, false
+	}
+	p.exprDepth++
+	return p.exprDepth, true
+}
+
+func (p *Parser) leaveExpr(depth int) {
+	p.exprDepth = depth - 1
+}
+
+// enterStmt records entry to one level of statement/block recursion. It
+// returns ok=false when nesting exceeds maxBlockDepth — a W1004 diagnostic
+// is recorded and the caller must bail out without recursing further.
+func (p *Parser) enterStmt(tok lexer.Token) bool {
+	if p.stmtDepth >= maxBlockDepth {
+		err := diagnostics.New(diagnostics.StackOverflow, p.tokenPos(tok))
+		err.Detail = "block nesting too deep to parse"
+		err.Hint = "split deeply nested blocks into smaller functions"
+		p.errors = append(p.errors, err)
+		return false
+	}
+	p.stmtDepth++
+	return true
+}
+
+func (p *Parser) leaveStmt() {
+	p.stmtDepth--
 }
 
 func New(tokens []lexer.Token) *Parser {
@@ -34,7 +110,7 @@ func NewWithFile(tokens []lexer.Token, file string) *Parser {
 func (p *Parser) Parse() (*ast.ProgramNode, []error) {
 	program := &ast.ProgramNode{Position: ast.Position{Line: 1, Column: 1}}
 
-	for !p.at(lexer.TOKEN_EOF) {
+	for !p.at(lexer.TOKEN_EOF) && !p.stmtOverflowed {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_EOF) {
 			break
@@ -88,8 +164,16 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseDiscardStmt()
 	case lexer.TOKEN_INPUT:
 		return p.parseInputStmt()
+	case lexer.TOKEN_INPUTLN:
+		return p.parseInputlnStmt()
 	case lexer.TOKEN_PRINT:
 		n := p.parsePrintExpr()
+		if n == nil {
+			return nil
+		}
+		return n
+	case lexer.TOKEN_PRINTLN:
+		n := p.parsePrintlnExpr()
 		if n == nil {
 			return nil
 		}
@@ -337,6 +421,16 @@ func (p *Parser) parseInputStmt() ast.Statement {
 	return &ast.InputNode{Value: value, Position: toASTPos(tok)}
 }
 
+func (p *Parser) parseInputlnStmt() ast.Statement {
+	tok := p.next()
+	value := p.parseExpression()
+	if value == nil {
+		p.syncToNextLine()
+		return nil
+	}
+	return &ast.InputlnNode{Value: value, Position: toASTPos(tok)}
+}
+
 func (p *Parser) parseImportStmt() ast.Statement {
 	tok := p.next()
 	id, ok := p.expectIdent()
@@ -488,6 +582,11 @@ func (p *Parser) parseExprStmt() ast.Statement {
 }
 
 func (p *Parser) parseExpression() ast.Expression {
+	depth, ok := p.enterExpr()
+	if !ok {
+		return nil
+	}
+	defer p.leaveExpr(depth)
 	return p.parseOr()
 }
 
@@ -582,6 +681,11 @@ func (p *Parser) parseFactor() ast.Expression {
 
 func (p *Parser) parseUnary() ast.Expression {
 	if p.at(lexer.TOKEN_MINUS) {
+		depth, ok := p.enterExpr()
+		if !ok {
+			return nil
+		}
+		defer p.leaveExpr(depth)
 		tok := p.next()
 		op := p.parseUnary()
 		if op == nil {
@@ -598,25 +702,28 @@ func (p *Parser) parsePrimary() ast.Expression {
 	case lexer.TOKEN_NUMBER:
 		p.next()
 		v, _ := strconv.ParseFloat(tok.Literal, 64)
-		return &ast.NumberLiteral{Value: v, Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.NumberLiteral{Value: v, Position: toASTPos(tok)})
 	case lexer.TOKEN_STRING:
 		p.next()
-		return &ast.StringLiteral{Value: tok.Literal, Raw: false, Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.StringLiteral{Value: tok.Literal, Raw: false, Position: toASTPos(tok)})
 	case lexer.TOKEN_RAW_STRING:
 		p.next()
-		return &ast.StringLiteral{Value: tok.Literal, Raw: true, Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.StringLiteral{Value: tok.Literal, Raw: true, Position: toASTPos(tok)})
 	case lexer.TOKEN_TRUE:
 		p.next()
-		return &ast.BoolLiteral{Value: true, Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.BoolLiteral{Value: true, Position: toASTPos(tok)})
 	case lexer.TOKEN_FALSE:
 		p.next()
-		return &ast.BoolLiteral{Value: false, Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.BoolLiteral{Value: false, Position: toASTPos(tok)})
 	case lexer.TOKEN_NULL:
 		p.next()
-		return &ast.NullLiteral{Position: toASTPos(tok)}
+		return p.parsePostfix(&ast.NullLiteral{Position: toASTPos(tok)})
 	case lexer.TOKEN_IDENT:
 		p.next()
-		return &ast.IdentNode{Name: tok.Literal, Position: toASTPos(tok)}
+		if p.at(lexer.TOKEN_DOT) && isQualifiedCallAhead(p) {
+			return p.parsePostfix(p.parseQualifiedCallFromIdent(tok.Literal, toASTPos(tok)))
+		}
+		return p.parsePostfix(&ast.IdentNode{Name: tok.Literal, Position: toASTPos(tok)})
 	case lexer.TOKEN_LPAREN:
 		p.next()
 		expr := p.parseExpression()
@@ -626,17 +733,58 @@ func (p *Parser) parsePrimary() ast.Expression {
 		if !p.expect(lexer.TOKEN_RPAREN) {
 			return nil
 		}
-		return expr
+		return p.parsePostfix(expr)
 	case lexer.TOKEN_LBRACKET:
-		return p.parseArrayLiteral()
+		return p.parsePostfix(p.parseArrayLiteral())
 	case lexer.TOKEN_DEFINE:
-		return p.parseDefineCallExpr()
+		return p.parsePostfix(p.parseDefineCallExpr())
 	case lexer.TOKEN_PRINT:
-		return p.parsePrintExpr()
+		return p.parsePostfix(p.parsePrintExpr())
+	case lexer.TOKEN_PRINTLN:
+		return p.parsePostfix(p.parsePrintlnExpr())
+	case lexer.TOKEN_CALL:
+		return p.parsePostfix(p.parseFuncRefExpr())
 	default:
+		if tok.Type == lexer.TOKEN_ILLEGAL {
+			p.addIllegalTokenError(tok)
+			p.next()
+			return nil
+		}
 		p.addUnexpectedToken(tok)
 		return nil
 	}
+}
+
+// parsePostfix parses indexing suffixes ([...]) applied to a primary
+// expression: arr[0], m[i][j], define f()[0], ...
+func (p *Parser) parsePostfix(expr ast.Expression) ast.Expression {
+	if expr == nil {
+		return nil
+	}
+	for p.at(lexer.TOKEN_LBRACKET) {
+		openTok := p.next()
+		idx := p.parseExpression()
+		if idx == nil {
+			return nil
+		}
+		if !p.expect(lexer.TOKEN_RBRACKET) {
+			return nil
+		}
+		expr = &ast.IndexNode{Collection: expr, Index: idx, Position: toASTPos(openTok)}
+	}
+	return expr
+}
+
+// parseFuncRefExpr parses `call name` or `call mod.name` used as an
+// expression: a first-class function reference. Parentheses after the name
+// are a definition, not part of the reference.
+func (p *Parser) parseFuncRefExpr() ast.Expression {
+	tok := p.next()
+	name, ok := p.parseQualifiedIdent()
+	if !ok {
+		return nil
+	}
+	return &ast.FuncRefNode{Name: name, Position: toASTPos(tok)}
 }
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
@@ -721,12 +869,79 @@ func (p *Parser) parsePrintExpr() *ast.PrintNode {
 	return &ast.PrintNode{Prompt: prompt, Position: toASTPos(tok)}
 }
 
+func (p *Parser) parsePrintlnExpr() *ast.PrintlnNode {
+	tok := p.next()
+	if p.at(lexer.TOKEN_NEWLINE) || p.at(lexer.TOKEN_EOF) || p.at(lexer.TOKEN_RBRACE) {
+		return &ast.PrintlnNode{Prompt: nil, Position: toASTPos(tok)}
+	}
+	prompt := p.parseExpression()
+	if prompt == nil {
+		return nil
+	}
+	return &ast.PrintlnNode{Prompt: prompt, Position: toASTPos(tok)}
+}
+
+// isQualifiedCallAhead reports whether the token stream after an identifier
+// and a '.' forms a module-qualified call (e.g. wronglib.sort(...)).
+func isQualifiedCallAhead(p *Parser) bool {
+	saved := p.pos
+	defer func() { p.pos = saved }()
+
+	p.next() // consume '.'
+	if !p.at(lexer.TOKEN_IDENT) {
+		return false
+	}
+	p.next()
+	return p.at(lexer.TOKEN_LPAREN)
+}
+
+// parseQualifiedCallFromIdent parses the remainder of a module-qualified
+// call (".name(args)") after the leading identifier has been consumed.
+func (p *Parser) parseQualifiedCallFromIdent(first string, pos ast.Position) ast.Expression {
+	name := first
+	for p.at(lexer.TOKEN_DOT) {
+		p.next()
+		next, ok := p.expectIdent()
+		if !ok {
+			return nil
+		}
+		name += "." + next.Literal
+	}
+	if !p.expect(lexer.TOKEN_LPAREN) {
+		return nil
+	}
+	args := make([]ast.Expression, 0)
+	if !p.at(lexer.TOKEN_RPAREN) {
+		for {
+			a := p.parseExpression()
+			if a == nil {
+				return nil
+			}
+			args = append(args, a)
+			if p.at(lexer.TOKEN_COMMA) {
+				p.next()
+				continue
+			}
+			break
+		}
+	}
+	if !p.expect(lexer.TOKEN_RPAREN) {
+		return nil
+	}
+	return &ast.FuncCallNode{Name: name, Args: args, Position: pos}
+}
+
 func (p *Parser) parseBlockBody() *ast.BlockNode {
 	openTok := p.prev()
+	if !p.enterStmt(openTok) {
+		p.stmtOverflowed = true
+		return nil
+	}
+	defer p.leaveStmt()
 	body := &ast.BlockNode{Position: toASTPos(openTok)}
 	p.blockDepth++
 
-	for !p.at(lexer.TOKEN_EOF) {
+	for !p.at(lexer.TOKEN_EOF) && !p.stmtOverflowed {
 		p.skipIgnorable()
 		if p.at(lexer.TOKEN_RBRACE) {
 			p.next()
@@ -749,6 +964,11 @@ func (p *Parser) parseBlockBody() *ast.BlockNode {
 	}
 
 	p.blockDepth--
+	if p.stmtOverflowed {
+		// Unwinding after the depth guard fired; the W1004 already
+		// explains the failure, so no "unclosed block" noise is added.
+		return nil
+	}
 	err := diagnostics.New(diagnostics.SyntaxError, p.tokenPos(openTok))
 	err.Found = "<eof>"
 	err.Detail = "unclosed block — missing closing '{'"
@@ -911,8 +1131,12 @@ func tokenLabel(t lexer.TokenType) string {
 		return "discard"
 	case lexer.TOKEN_INPUT:
 		return "input"
+	case lexer.TOKEN_INPUTLN:
+		return "inputln"
 	case lexer.TOKEN_PRINT:
 		return "print"
+	case lexer.TOKEN_PRINTLN:
+		return "println"
 	case lexer.TOKEN_EOF:
 		return "<eof>"
 	default:

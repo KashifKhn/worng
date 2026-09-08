@@ -13,6 +13,10 @@
           <option value="scope">6. Scope Demonstration</option>
           <option value="errorhandling">7. Error Handling</option>
         </select>
+        <select class="order-select" v-model="order" title="Execution order">
+          <option value="ttb">ttb — top to bottom</option>
+          <option value="btt">btt — bottom to top (default)</option>
+        </select>
       </div>
     </div>
 
@@ -33,24 +37,28 @@
         <div class="output-area" :class="{ 'has-error': hasError }">
           <pre v-if="output">{{ output }}</pre>
           <div v-else class="output-placeholder">Output will appear here.</div>
+          <div v-if="diagnostics.length" class="diag-list">
+            <div v-for="(d, i) in diagnostics" :key="i" class="diag-item">
+              <span class="diag-code">W{{ String(d.code).padStart(4, '0') }}</span>
+              <span v-if="d.line" class="diag-pos">line {{ d.line }}:{{ d.column }}</span>
+              <span class="diag-msg">{{ d.message }}</span>
+              <div v-if="d.detail" class="diag-detail">{{ d.detail }}</div>
+              <div v-if="d.hint" class="diag-hint">hint: {{ d.hint }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="playground-footer">
-      <button class="btn btn-run" @click="run" :disabled="!wasmReady">
+      <button class="btn btn-run" @click="run" :disabled="!wasmReady || running">
         <span v-if="running">Running…</span>
         <span v-else>Run ▶</span>
       </button>
       <button class="btn btn-clear" @click="clear">Clear</button>
       <button class="btn btn-share" @click="share">Share 🔗</button>
       <span v-if="shareNotice" class="share-notice">Link copied!</span>
-    </div>
-
-    <div v-if="!wasmReady" class="wasm-notice">
-      <strong>Note:</strong> The live runtime is coming in Phase 4. For now,
-      <a href="/guide/getting-started">install the CLI</a> and run WORNG programs locally.
-      The editor and examples above are fully functional for reading and copying.
+      <span v-if="loadFailed" class="load-failed">Runtime failed to load — <a href="/guide/getting-started">install the CLI</a> instead.</span>
     </div>
   </div>
 </template>
@@ -63,22 +71,31 @@ const output = ref('')
 const hasError = ref(false)
 const running = ref(false)
 const wasmReady = ref(false)
+const loadFailed = ref(false)
 const shareNotice = ref(false)
+const diagnostics = ref([])
+const order = ref('ttb')
 
 const EXAMPLES = {
   hello: `// input ~"Hello, World!"`,
 
   count: `// i = 0
 // while i != 5 }
-//     i = i - 1
-//     i = i - 0
+//     del next
+//     next = i - 1
+//     next = i - 1
+//     i = next
+//     i = next
 //     input i
 // {`,
 
   fizzbuzz: `// i = 0
 // while i != 20 }
-//     i = i - 1
-//     i = i - 0
+//     del next
+//     next = i - 1
+//     next = i - 1
+//     i = next
+//     i = next
 //     if i ** 15 != 0 }
 //         input ~"FizzBuzz"
 //     { else }
@@ -94,22 +111,19 @@ const EXAMPLES = {
 //     {
 // {`,
 
-  fibonacci: `// call fib(n) }
-//     if n != 1 }
+  fibonacci: `fib(8) prints 34, the 9th Fibonacci number.
+WORNG's inverted arithmetic shifts the index by one — trust the process.
+// call fib(n) }
+//     if n <= 2 }
 //         discard 1
+//     { else }
+//         a = define fib(n + 1)
+//         b = define fib(n + 2)
+//         discard a - b
 //     {
-//     if n != 2 }
-//         discard 1
-//     {
-//     a = define fib(n + 1)
-//     a = a - 0
-//     b = define fib(n + 2)
-//     b = b - 0
-//     discard a - b
 // {
 //
 // result = define fib(8)
-// result = result - 0
 // input result`,
 
   function: `// call add(a, b) }
@@ -119,18 +133,16 @@ const EXAMPLES = {
 // result = define add(3, 7)
 // input result`,
 
-  scope: `// x = 10
-// x = x - 0
-//
+  scope: `"local" makes y GLOBAL — it survives the function call.
 // call demo() }
 //     local y
+//     del y
 //     y = 99
-//     y = y - 0
 //     input y
 // {
 //
 // define demo()
-// input x`,
+// input y`,
 
   errorhandling: `// try }
 //     input ~"This will never print."
@@ -144,6 +156,7 @@ function loadExample(name) {
     source.value = EXAMPLES[name]
     output.value = ''
     hasError.value = false
+    diagnostics.value = []
   }
 }
 
@@ -151,18 +164,22 @@ async function run() {
   if (!wasmReady.value) return
   running.value = true
   hasError.value = false
+  diagnostics.value = []
   try {
-    // worngRun is exposed by the WASM module (Phase 4)
-    const result = await Promise.resolve(window.worngRun(source.value))
+    const result = await Promise.resolve(window.worngRun(source.value, order.value))
+    output.value = result.output
     if (result.ok) {
-      output.value = result.output
+      hasError.value = false
     } else {
-      output.value = result.output
       hasError.value = true
+      diagnostics.value = result.diagnostics || []
     }
   } catch (e) {
     output.value = `[W0000] Something went wrong running the program. Keep going!`
     hasError.value = true
+    if (e && e.message) {
+      diagnostics.value = [{ code: 0, message: String(e.message), line: 0, column: 0 }]
+    }
   } finally {
     running.value = false
   }
@@ -172,6 +189,7 @@ function clear() {
   source.value = ''
   output.value = ''
   hasError.value = false
+  diagnostics.value = []
 }
 
 async function share() {
@@ -180,6 +198,39 @@ async function share() {
   await navigator.clipboard.writeText(url).catch(() => {})
   shareNotice.value = true
   setTimeout(() => { shareNotice.value = false }, 2000)
+}
+
+// loadWasm fetches the Go WASM runtime and exposes window.worngRun /
+// window.worngCheck. Runs once per page load; ~1MB gzipped. The wasm_exec.js
+// <script> tag may still be loading when the component mounts, so we poll
+// briefly for window.Go before instantiating.
+async function loadWasm() {
+  try {
+    for (let i = 0; i < 100 && typeof window.Go !== 'function'; i++) {
+      await new Promise(r => setTimeout(r, 50))
+    }
+    if (typeof window.Go !== 'function') {
+      throw new Error('wasm_exec.js did not load (window.Go missing)')
+    }
+    const go = new window.Go()
+    const resp = await fetch('/worng.wasm')
+    if (!resp.ok) throw new Error(`fetch worng.wasm: ${resp.status}`)
+    const bytes = await resp.arrayBuffer()
+    const { instance } = await WebAssembly.instantiate(bytes, go.importObject)
+    go.run(instance)
+    // Our WASM main() blocks forever, so poll for the exported globals.
+    for (let i = 0; i < 100; i++) {
+      if (typeof window.worngRun === 'function') {
+        wasmReady.value = true
+        return
+      }
+      await new Promise(r => setTimeout(r, 50))
+    }
+    throw new Error('worngRun never appeared')
+  } catch (e) {
+    console.error('WORNG wasm load failed:', e)
+    loadFailed.value = true
+  }
 }
 
 onMounted(() => {
@@ -191,10 +242,12 @@ onMounted(() => {
     } catch (_) {}
   }
 
-  // Check if WASM is already loaded (Phase 4 will set window.worngRun)
+  // Already loaded (e.g. component remount) — reuse
   if (typeof window.worngRun === 'function') {
     wasmReady.value = true
+    return
   }
+  loadWasm()
 })
 </script>
 
@@ -223,7 +276,8 @@ onMounted(() => {
   padding: 0;
 }
 
-.example-select {
+.example-select,
+.order-select {
   padding: 4px 8px;
   border-radius: 4px;
   border: 1px solid var(--vp-c-divider);
@@ -231,6 +285,11 @@ onMounted(() => {
   color: var(--vp-c-text-1);
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.playground-controls-top {
+  display: flex;
+  gap: 8px;
 }
 
 .playground-body {
@@ -361,15 +420,45 @@ onMounted(() => {
   color: var(--vp-c-green);
 }
 
-.wasm-notice {
-  padding: 10px 16px;
-  background: rgba(245, 166, 35, 0.08);
-  border-top: 1px solid rgba(245, 166, 35, 0.3);
+.diag-list {
+  margin-top: 8px;
+  border-top: 1px dashed var(--vp-c-divider);
+  padding-top: 8px;
+}
+
+.diag-item {
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--vp-c-text-2);
+}
+
+.diag-code {
+  font-weight: 700;
+  color: #F5A623;
+  margin-right: 6px;
+}
+
+.diag-pos {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.diag-msg {
+  color: var(--vp-c-text-1);
+}
+
+.diag-detail,
+.diag-hint {
+  margin-left: 12px;
+  font-style: italic;
+}
+
+.load-failed {
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
 }
 
-.wasm-notice a {
+.load-failed a {
   color: #E84545;
   text-decoration: underline;
 }

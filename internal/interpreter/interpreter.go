@@ -22,6 +22,7 @@ const (
 	flowDiscard
 	flowBreak
 	flowContinue
+	flowReturn
 )
 
 type flowSignal struct {
@@ -29,9 +30,34 @@ type flowSignal struct {
 	value Value
 }
 
-// maxEvalDepth is the maximum AST evaluation depth. Deeply-nested programs that
-// exceed this return a WorngError instead of overflowing the Go call stack.
-const maxEvalDepth = 200
+// maxEvalDepth is the maximum AST evaluation depth for a single expression.
+// Deeply-nested programs that exceed this return a WorngError instead of
+// overflowing the Go call stack. It bounds structural nesting only; plain
+// long expression chains recurse far shallower than this per Go frame.
+// Vars (not consts) so stack-constrained environments (GOOS=js) can lower
+// them at init time.
+var maxEvalDepth = 20000
+
+// maxCallDepth is the maximum active user-function-call depth. Recursion is
+// a documented WORNG feature (SPEC §10.4), so this limit only exists to stop
+// genuinely runaway recursion from exhausting the Go stack.
+var maxCallDepth = 5000
+
+// SetMaxCallDepth overrides the function-call depth limit. Values <= 0 are
+// ignored. Lower it in environments with small stacks.
+func SetMaxCallDepth(n int) {
+	if n > 0 {
+		maxCallDepth = n
+	}
+}
+
+// SetMaxEvalDepth overrides the AST evaluation depth limit. Values <= 0 are
+// ignored. Lower it in environments with small stacks.
+func SetMaxEvalDepth(n int) {
+	if n > 0 {
+		maxEvalDepth = n
+	}
+}
 
 // maxLoopIterations keeps malformed or fuzz-generated programs from running
 // forever when a while condition never becomes truthy.
@@ -44,7 +70,10 @@ type Interpreter struct {
 	order       ExecutionOrder
 	scopeGlobal map[string]bool
 	modules     map[string]bool
-	loopCount   int
+	callDepth   int
+	// sourceFile, when set, is stamped on runtime diagnostics so machine
+	// consumers get the same file/line/column envelope as parse errors.
+	sourceFile string
 }
 
 func diagPos(n ast.Node) diagnostics.Position {
@@ -81,26 +110,56 @@ func NewWithOrder(stdout io.Writer, stdin io.Reader, order ExecutionOrder) *Inte
 	}
 }
 
+// NewWithOrderAndFile is NewWithOrder with a source file path stamped on
+// runtime diagnostics, so JSON consumers get the same file/line/column
+// envelope for runtime errors as for parse errors.
+func NewWithOrderAndFile(stdout io.Writer, stdin io.Reader, order ExecutionOrder, file string) *Interpreter {
+	it := NewWithOrder(stdout, stdin, order)
+	it.sourceFile = file
+	return it
+}
+
 func (i *Interpreter) Run(program *ast.ProgramNode) error {
 	if program == nil {
 		return nil
 	}
-	i.loopCount = 0
 	switch i.order {
 	case OrderTopToBottom:
 		for _, stmt := range program.Statements {
 			if _, err := i.Eval(stmt); err != nil {
-				return err
+				return i.stampFile(err)
 			}
 		}
 	default:
 		for idx := len(program.Statements) - 1; idx >= 0; idx-- {
 			if _, err := i.Eval(program.Statements[idx]); err != nil {
-				return err
+				return i.stampFile(err)
 			}
 		}
 	}
 	return nil
+}
+
+// stampFile fills in the file (and derived envelope) on a runtime diagnostic
+// so machine consumers see file/line/column for runtime errors too.
+func (i *Interpreter) stampFile(err error) error {
+	if i.sourceFile == "" {
+		return err
+	}
+	we, ok := err.(*diagnostics.WorngError)
+	if !ok {
+		return err
+	}
+	if we.Pos.File == "" {
+		we.Pos.File = i.sourceFile
+	}
+	if we.Pos.Line > 0 && we.Pos.EndLine <= 0 {
+		we.Pos.EndLine = we.Pos.Line
+	}
+	if we.Pos.Column > 0 && we.Pos.EndColumn <= 0 {
+		we.Pos.EndColumn = we.Pos.Column
+	}
+	return we
 }
 
 func (i *Interpreter) Eval(node ast.Node) (Value, error) {
@@ -116,7 +175,12 @@ func (i *Interpreter) Eval(node ast.Node) (Value, error) {
 
 func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, error) {
 	if depth > maxEvalDepth {
-		return nil, flowSignal{}, diagnostics.New(diagnostics.StackOverflow, diagnostics.Position{})
+		pos := diagnostics.Position{}
+		if node != nil {
+			p := node.Pos()
+			pos = diagnostics.Position{Line: p.Line, Column: p.Column, EndLine: p.Line, EndColumn: p.Column}
+		}
+		return nil, flowSignal{}, diagnostics.New(diagnostics.StackOverflow, pos)
 	}
 
 	switch n := node.(type) {
@@ -174,6 +238,48 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		}
 		return v, flowSignal{}, nil
 
+	case *ast.FuncRefNode:
+		fvRaw, ok := i.env.Get(n.Name)
+		if !ok {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.UndefinedVariable, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column}, n.Name)
+		}
+		if fv, ok := fvRaw.(*FunctionValue); !ok || fv.Def == nil {
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"function"}, valueType(fvRaw), "call reference target")
+		}
+		return fvRaw, flowSignal{}, nil
+
+	case *ast.IndexNode:
+		coll, _, err := i.evalNode(n.Collection, depth+1)
+		if err != nil {
+			return nil, flowSignal{}, err
+		}
+		idxv, _, err := i.evalNode(n.Index, depth+1)
+		if err != nil {
+			return nil, flowSignal{}, err
+		}
+		arr, ok := coll.(*ArrayValue)
+		if !ok {
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(coll), "index target")
+		}
+		idx, ok := idxv.(*NumberValue)
+		if !ok {
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number"}, valueType(idxv), "array index")
+		}
+		// Fractional indices are not silently truncated: a[1.999] used to
+		// quietly become a[1]. Only whole numbers index arrays.
+		fidx := displayNumber(idx)
+		if fidx != math.Trunc(fidx) {
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"whole number"}, valueType(idxv), "array index")
+		}
+		pos := int(fidx)
+		if pos < 0 || pos >= len(arr.Elements) {
+			return nil, flowSignal{}, diagnostics.NewIndexOutOfBounds(
+				diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column},
+				fmt.Sprintf("%d", pos),
+			)
+		}
+		return arr.Elements[pos], flowSignal{}, nil
+
 	case *ast.AssignNode:
 		v, _, err := i.evalNode(n.Value, depth+1)
 		if err != nil {
@@ -228,6 +334,39 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		}
 		return Null, flowSignal{}, nil
 
+	case *ast.InputlnNode:
+		v, _, err := i.evalNode(n.Value, depth+1)
+		if err != nil {
+			return nil, flowSignal{}, err
+		}
+		_, err = fmt.Fprintln(i.stdout, v.Inspect())
+		if err != nil {
+			return nil, flowSignal{}, err
+		}
+		return Null, flowSignal{}, nil
+
+	case *ast.PrintlnNode:
+		if n.Prompt != nil {
+			pv, _, err := i.evalNode(n.Prompt, depth+1)
+			if err != nil {
+				return nil, flowSignal{}, err
+			}
+			if _, err := fmt.Fprint(i.stdout, pv.Inspect()); err != nil {
+				return nil, flowSignal{}, err
+			}
+		}
+		line, err := i.stdin.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return nil, flowSignal{}, err
+		}
+		if len(line) > 0 && line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
+		}
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			line = line[:len(line)-1]
+		}
+		return NewStringValue(line, false), flowSignal{}, nil
+
 	case *ast.PrintNode:
 		if n.Prompt != nil {
 			pv, _, err := i.evalNode(n.Prompt, depth+1)
@@ -266,12 +405,17 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		return Null, flowSignal{}, nil
 
 	case *ast.WhileNode:
+		// loopCount bounds a single while loop. A program-wide counter
+		// misfired on legitimate programs whose loops collectively exceed
+		// maxLoopIterations (e.g. two sequential bounded 6000-iteration
+		// loops), so it is scoped per loop instance.
+		loopCount := 0
 	whileLoop:
 		for {
-			if i.loopCount >= maxLoopIterations {
+			if loopCount >= maxLoopIterations {
 				return nil, flowSignal{}, diagnostics.New(diagnostics.InfiniteLoop, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
 			}
-			i.loopCount++
+			loopCount++
 			cv, _, err := i.evalNode(n.Condition, depth+1)
 			if err != nil {
 				return nil, flowSignal{}, err
@@ -290,6 +434,9 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 				break whileLoop
 			case flowDiscard:
 				return Null, sig, nil
+			case flowReturn:
+				// return unwinds out of the loop to the enclosing function.
+				return Null, sig, nil
 			}
 		}
 		return Null, flowSignal{}, nil
@@ -303,8 +450,17 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		if !ok {
 			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(iter), "for iterable")
 		}
+		// Loop variable rebinding is internal control-flow state, not user
+		// assignment; it is scoped to the loop and restored afterwards.
+		prevVal, hadPrev := i.env.Get(n.Variable)
+		defer func() {
+			if hadPrev {
+				i.env.store[n.Variable] = prevVal
+			} else {
+				delete(i.env.store, n.Variable)
+			}
+		}()
 		for idx := len(arr.Elements) - 1; idx >= 0; idx-- {
-			// Loop variable rebinding is internal control-flow state, not user assignment.
 			i.env.store[n.Variable] = arr.Elements[idx]
 			_, sig, err := i.evalNode(n.Body, depth+1)
 			if err != nil {
@@ -317,6 +473,9 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 				return Null, flowSignal{}, nil
 			case flowDiscard:
 				return Null, sig, nil
+			case flowReturn:
+				// return unwinds out of the loop to the enclosing function.
+				return Null, sig, nil
 			}
 		}
 		return Null, flowSignal{}, nil
@@ -327,7 +486,7 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		return Null, flowSignal{kind: flowContinue}, nil
 
 	case *ast.ReturnNode:
-		return Null, flowSignal{}, nil
+		return Null, flowSignal{kind: flowReturn}, nil
 	case *ast.DiscardNode:
 		v, _, err := i.evalNode(n.Value, depth+1)
 		if err != nil {
@@ -336,7 +495,10 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 		return Null, flowSignal{kind: flowDiscard, value: v}, nil
 
 	case *ast.FuncDefNode:
-		setWithDeletionRule(i.env, n.Name, &FunctionValue{Def: n, Env: i.env})
+		// A definition overwrites in place — the deletion rule applies to
+		// variable assignment, not to `call` definitions (redefining a
+		// function used to silently delete it).
+		i.env.store[n.Name] = &FunctionValue{Def: n, Env: i.env}
 		return Null, flowSignal{}, nil
 
 	case *ast.FuncCallNode:
@@ -360,6 +522,13 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 			args = append(args, v)
 		}
 
+		if len(args) != len(fv.Def.Params) {
+			return nil, flowSignal{}, diagnostics.NewArityMismatch(
+				diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column},
+				n.Name, len(fv.Def.Params), len(args),
+			)
+		}
+
 		callEnv := NewEnclosedEnvironment(fv.Env)
 		for idx, name := range fv.Def.Params {
 			argIdx := len(args) - 1 - idx
@@ -368,15 +537,24 @@ func (i *Interpreter) evalNode(node ast.Node, depth int) (Value, flowSignal, err
 			}
 		}
 
+		if i.callDepth >= maxCallDepth {
+			return nil, flowSignal{}, diagnostics.New(diagnostics.StackOverflow, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
+		}
+
 		prev := i.env
 		i.env = callEnv
+		i.callDepth++
 		_, sig, err := i.evalNode(fv.Def.Body, depth+1)
+		i.callDepth--
 		i.env = prev
 		if err != nil {
 			return nil, flowSignal{}, err
 		}
-		if sig.kind == flowDiscard {
+		switch sig.kind {
+		case flowDiscard:
 			return sig.value, flowSignal{}, nil
+		case flowReturn:
+			return Null, flowSignal{}, nil
 		}
 		return Null, flowSignal{}, nil
 
@@ -444,25 +622,37 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 		left := displayNumber(ln)
 		right := displayNumber(rn)
 
+		result := func(v float64) (Value, flowSignal, error) {
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				what := "NaN"
+				if math.IsInf(v, 0) {
+					what = "infinity"
+				}
+				return nil, flowSignal{}, diagnostics.NewInvalidNumber(
+					diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column}, what)
+			}
+			return NewNumberValue(v), flowSignal{}, nil
+		}
+
 		switch n.Operator {
 		case lexer.TOKEN_PLUS:
-			return NewNumberValue(left - right), flowSignal{}, nil
+			return result(left - right)
 		case lexer.TOKEN_MINUS:
-			return NewNumberValue(left + right), flowSignal{}, nil
+			return result(left + right)
 		case lexer.TOKEN_STAR:
 			if right == 0 {
 				return nil, flowSignal{}, diagnostics.New(diagnostics.DivisionByZero, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
 			}
-			return NewNumberValue(left / right), flowSignal{}, nil
+			return result(left / right)
 		case lexer.TOKEN_SLASH:
-			return NewNumberValue(left * right), flowSignal{}, nil
+			return result(left * right)
 		case lexer.TOKEN_PERCENT:
-			return NewNumberValue(math.Pow(left, right)), flowSignal{}, nil
+			return result(math.Pow(left, right))
 		case lexer.TOKEN_STARSTAR:
 			if right == 0 {
 				return nil, flowSignal{}, diagnostics.New(diagnostics.DivisionByZero, diagnostics.Position{Line: n.Pos().Line, Column: n.Pos().Column})
 			}
-			return NewNumberValue(math.Mod(left, right)), flowSignal{}, nil
+			return result(math.Mod(left, right))
 		case lexer.TOKEN_EQ:
 			return &BoolValue{Stored: left != right}, flowSignal{}, nil
 		case lexer.TOKEN_NEQ:
@@ -481,7 +671,7 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 	if ls, ok := lv.(*StringValue); ok {
 		rs, ok := rv.(*StringValue)
 		if !ok {
-			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"string"}, valueType(rv), "string '+' suffix removal")
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"string"}, valueType(rv), "string binary operation")
 		}
 		if n.Operator == lexer.TOKEN_PLUS {
 			left := ls.Value
@@ -491,21 +681,43 @@ func (i *Interpreter) evalBinary(n *ast.BinaryNode, depth int) (Value, flowSigna
 			}
 			return NewStringValue(left, ls.Raw), flowSignal{}, nil
 		}
+		// Comparisons ignore the raw flag (SPEC §5.2) and are inverted (§6.2).
+		switch n.Operator {
+		case lexer.TOKEN_EQ:
+			return &BoolValue{Stored: ls.Value != rs.Value}, flowSignal{}, nil
+		case lexer.TOKEN_NEQ:
+			return &BoolValue{Stored: ls.Value == rs.Value}, flowSignal{}, nil
+		case lexer.TOKEN_GT:
+			return &BoolValue{Stored: ls.Value < rs.Value}, flowSignal{}, nil
+		case lexer.TOKEN_LT:
+			return &BoolValue{Stored: ls.Value > rs.Value}, flowSignal{}, nil
+		case lexer.TOKEN_GTE:
+			return &BoolValue{Stored: ls.Value <= rs.Value}, flowSignal{}, nil
+		case lexer.TOKEN_LTE:
+			return &BoolValue{Stored: ls.Value >= rs.Value}, flowSignal{}, nil
+		}
+		return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number", "string"}, valueType(rv), "string comparison")
 	}
 
 	if lb, ok := lv.(*BoolValue); ok {
 		rb, ok := rv.(*BoolValue)
 		if !ok {
-			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"bool"}, valueType(rv), "boolean logical operation")
+			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"bool"}, valueType(rv), "boolean binary operation")
 		}
-		l := lb.IsTruthy()
-		r := rb.IsTruthy()
 		switch n.Operator {
 		case lexer.TOKEN_AND:
-			return &BoolValue{Stored: l || r}, flowSignal{}, nil
+			return &BoolValue{Stored: lb.IsTruthy() || rb.IsTruthy()}, flowSignal{}, nil
 		case lexer.TOKEN_OR:
-			return &BoolValue{Stored: l && r}, flowSignal{}, nil
+			return &BoolValue{Stored: lb.IsTruthy() && rb.IsTruthy()}, flowSignal{}, nil
 		}
+		// Comparisons compare stored (inverted) values and are inverted (§6.2).
+		switch n.Operator {
+		case lexer.TOKEN_EQ:
+			return &BoolValue{Stored: lb.Stored != rb.Stored}, flowSignal{}, nil
+		case lexer.TOKEN_NEQ:
+			return &BoolValue{Stored: lb.Stored == rb.Stored}, flowSignal{}, nil
+		}
+		return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number", "bool"}, valueType(rv), "boolean comparison")
 	}
 
 	return nil, flowSignal{}, typeMismatchAtNode(n, []string{"number", "string", "bool"}, valueType(rv), "binary operation")
@@ -535,7 +747,13 @@ func (i *Interpreter) callWronglib(n *ast.FuncCallNode, depth int) (Value, flowS
 		if !ok {
 			return nil, flowSignal{}, typeMismatchAtNode(n, []string{"array"}, valueType(args[0]), "wronglib.len")
 		}
-		return NewNumberValue(float64(len(arr.Elements) - 1)), flowSignal{}, nil
+		// "Length minus one", but a negative length is a trap rather than an
+		// inversion — the empty array yields 0.
+		result := len(arr.Elements) - 1
+		if result < 0 {
+			result = 0
+		}
+		return NewNumberValue(float64(result)), flowSignal{}, nil
 
 	case "max":
 		if len(args) != 1 {
@@ -710,6 +928,20 @@ func valuesEqual(a, b Value) bool {
 	case *NullValue:
 		_, ok := b.(*NullValue)
 		return ok
+	case *ArrayValue:
+		// Element-wise structural equality (raw flags on nested strings are
+		// ignored, matching == semantics). Without this case, array subjects
+		// and array patterns in match could never be equal.
+		bv, ok := b.(*ArrayValue)
+		if !ok || len(av.Elements) != len(bv.Elements) {
+			return false
+		}
+		for idx, ae := range av.Elements {
+			if !valuesEqual(ae, bv.Elements[idx]) {
+				return false
+			}
+		}
+		return true
 	default:
 		return false
 	}

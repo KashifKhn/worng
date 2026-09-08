@@ -25,7 +25,11 @@ func NewNumberValue(n float64) *NumberValue {
 func (v *NumberValue) Type() string { return "number" }
 
 func (v *NumberValue) Inspect() string {
-	return fmt.Sprintf("%g", -v.Stored)
+	disp := -v.Stored
+	if disp == 0 {
+		disp = 0 // normalize -0 to 0 for display
+	}
+	return fmt.Sprintf("%g", disp)
 }
 
 func (v *NumberValue) IsTruthy() bool {

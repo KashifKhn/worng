@@ -18,6 +18,10 @@ type Lexer struct {
 	column  int
 	pending []Token
 	eofSent bool
+	// lineMap, when non-nil, maps prepared-text line numbers (1-based) to
+	// original source line numbers. It lets diagnostics produced from
+	// preprocessed input point at real file locations.
+	lineMap []int
 }
 
 func New(input string) *Lexer {
@@ -26,6 +30,24 @@ func New(input string) *Lexer {
 		line:   1,
 		column: 1,
 	}
+}
+
+// NewWithLineMap builds a Lexer whose reported token lines are remapped
+// through lineMap: a token on prepared line N reports lineMap[N-1]. Entries
+// beyond the map length keep their prepared line number.
+func NewWithLineMap(input string, lineMap []int) *Lexer {
+	l := New(input)
+	l.lineMap = lineMap
+	return l
+}
+
+// sourceLine translates an internal prepared-text line to the original
+// source line when a line map is installed.
+func (l *Lexer) sourceLine(line int) int {
+	if l.lineMap == nil || line < 1 || line > len(l.lineMap) {
+		return line
+	}
+	return l.lineMap[line-1]
 }
 
 func (l *Lexer) Tokenize() []Token {
@@ -40,7 +62,15 @@ func (l *Lexer) Tokenize() []Token {
 	return tokens
 }
 
+// NextToken returns the next token, with Line remapped to the original
+// source line when a line map is installed (see NewWithLineMap).
 func (l *Lexer) NextToken() Token {
+	tok := l.nextToken()
+	tok.Line = l.sourceLine(tok.Line)
+	return tok
+}
+
+func (l *Lexer) nextToken() Token {
 	if len(l.pending) > 0 {
 		tok := l.pending[0]
 		l.pending = l.pending[1:]
@@ -284,6 +314,26 @@ func (l *Lexer) readNumber() string {
 		}
 	}
 
+	// Scientific notation: 1e3, 2.5e-3, 7E+2. The exponent marker only
+	// belongs to the number when a digit (or sign + digit) follows;
+	// otherwise "1e" stays NUMBER(1) + IDENT(e) as before.
+	if l.matchByte('e') || l.matchByte('E') {
+		expLen := 1
+		if sign, ok := l.peekRuneAt(l.pos + 1); ok && (sign == '+' || sign == '-') {
+			expLen = 2
+		}
+		if d, ok := l.peekRuneAt(l.pos + expLen); ok && isASCIIDigit(d) {
+			l.consumeString(l.input[l.pos : l.pos+expLen+1]) // marker (+ sign) + first digit
+			for {
+				r, ok := l.peekRune()
+				if !ok || !isASCIIDigit(r) {
+					break
+				}
+				l.consumeRune()
+			}
+		}
+	}
+
 	return l.input[start:l.pos]
 }
 
@@ -435,6 +485,8 @@ var keywords = map[string]TokenType{
 	"raise":    TOKEN_RAISE,
 	"break":    TOKEN_BREAK,
 	"continue": TOKEN_CONTINUE,
+	"inputln":  TOKEN_INPUTLN,
+	"println":  TOKEN_PRINTLN,
 }
 
 func lookupIdent(ident string) TokenType {

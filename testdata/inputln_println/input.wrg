@@ -1,0 +1,3 @@
+// inputln ~"line one"
+// inputln "abc"
+// inputln 42

@@ -75,6 +75,8 @@ func collectDefines(stmts []ast.Statement, defined map[string]bool) {
 			}
 		case *ast.InputNode:
 			collectExprDefines(n.Value, defined)
+		case *ast.InputlnNode:
+			collectExprDefines(n.Value, defined)
 		case *ast.ReturnNode:
 			if n.Value != nil {
 				collectExprDefines(n.Value, defined)
@@ -103,6 +105,10 @@ func collectExprDefines(expr ast.Expression, defined map[string]bool) {
 		collectExprDefines(n.Right, defined)
 	case *ast.UnaryNode:
 		collectExprDefines(n.Operand, defined)
+	case *ast.IndexNode:
+		collectExprDefines(n.Collection, defined)
+		collectExprDefines(n.Index, defined)
+	case *ast.FuncRefNode:
 	case *ast.ArrayLiteral:
 		for _, elem := range n.Elements {
 			collectExprDefines(elem, defined)
@@ -130,6 +136,8 @@ func checkReferences(stmts []ast.Statement, defined map[string]bool, errs *[]err
 			checkExprReferences(n.Iterable, defined, errs, uri)
 			checkBlockReferences(n.Body.Statements, defined, errs, uri)
 		case *ast.InputNode:
+			checkExprReferences(n.Value, defined, errs, uri)
+		case *ast.InputlnNode:
 			checkExprReferences(n.Value, defined, errs, uri)
 		case *ast.ReturnNode:
 			if n.Value != nil {
@@ -192,6 +200,15 @@ func checkExprReferences(expr ast.Expression, defined map[string]bool, errs *[]e
 		if n.Prompt != nil {
 			checkExprReferences(n.Prompt, defined, errs, uri)
 		}
+	case *ast.PrintlnNode:
+		if n.Prompt != nil {
+			checkExprReferences(n.Prompt, defined, errs, uri)
+		}
+	case *ast.IndexNode:
+		checkExprReferences(n.Collection, defined, errs, uri)
+		checkExprReferences(n.Index, defined, errs, uri)
+	case *ast.FuncRefNode:
+		checkExprReferencesForCallName(n.Name, n.Pos(), defined, errs, uri)
 	case *ast.ArrayLiteral:
 		for _, elem := range n.Elements {
 			checkExprReferences(elem, defined, errs, uri)

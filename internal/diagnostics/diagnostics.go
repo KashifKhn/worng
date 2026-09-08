@@ -233,6 +233,45 @@ func NewTypeMismatch(pos Position, expected []string, found, context string) *Wo
 	}
 }
 
+// NewIndexOutOfBounds creates a structured index-out-of-bounds diagnostic.
+func NewIndexOutOfBounds(pos Position, index string) *WorngError {
+	return &WorngError{
+		Diag:   IndexOutOfBounds,
+		Pos:    pos,
+		Detail: fmt.Sprintf("index %s is outside the array bounds", quoteToken(index)),
+		Hint:   "use an index between 0 and the array length minus 1",
+		Found:  index,
+	}
+}
+
+// NewArityMismatch creates a structured function-arity diagnostic.
+func NewArityMismatch(pos Position, name string, params, args int) *WorngError {
+	plural := "s"
+	if params == 1 {
+		plural = ""
+	}
+	argPlural := "s"
+	if args == 1 {
+		argPlural = ""
+	}
+	return &WorngError{
+		Diag:   ArityMismatch,
+		Pos:    pos,
+		Detail: fmt.Sprintf("function %q expects %d argument%s, call supplied %d argument%s", name, params, plural, args, argPlural),
+		Hint:   "match the number of arguments to the number of parameters in the `call` definition",
+	}
+}
+
+// NewInvalidNumber creates a diagnostic for NaN/Infinite arithmetic results.
+func NewInvalidNumber(pos Position, what string) *WorngError {
+	return &WorngError{
+		Diag:   InvalidNumber,
+		Pos:    pos,
+		Detail: fmt.Sprintf("this operation produced %s, which WORNG cannot store or display", what),
+		Hint:   "keep exponent bases non-negative with fractional exponents, and avoid overflowing magnitudes",
+	}
+}
+
 // Error implements the error interface with the encouraging message.
 func (e *WorngError) Error() string {
 	msg := e.Message()
@@ -373,6 +412,18 @@ var (
 		Category: CategoryError,
 		Key:      "invalid_max_errors",
 		Text:     "Wonderful tuning attempt! That max error value is not valid.",
+	}
+	ArityMismatch = Diagnostic{
+		Code:     1015,
+		Category: CategoryError,
+		Key:      "arity_mismatch",
+		Text:     "Outstanding counting! That call has the wrong number of arguments — so close!",
+	}
+	InvalidNumber = Diagnostic{
+		Code:     1016,
+		Category: CategoryError,
+		Key:      "invalid_number",
+		Text:     "Stellar arithmetic! You've reached a number WORNG can't represent.",
 	}
 )
 

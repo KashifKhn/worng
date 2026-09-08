@@ -20,8 +20,17 @@ type parseResult struct {
 }
 
 func parseProgram(file, source string) parseResult {
-	lines := lexer.Preprocess(source)
-	tokens := lexer.New(joinLines(lines)).Tokenize()
+	lines, err := lexer.PreprocessWithLines(source)
+	if err != nil {
+		return parseResult{errs: []error{err}}
+	}
+	lineMap := make([]int, len(lines))
+	contents := make([]string, len(lines))
+	for idx, l := range lines {
+		lineMap[idx] = l.SourceLine
+		contents[idx] = l.Content
+	}
+	tokens := lexer.NewWithLineMap(joinLines(contents), lineMap).Tokenize()
 	p := parser.NewWithFile(tokens, file)
 	program, errs := p.Parse()
 	return parseResult{program: program, errs: errs}
@@ -209,7 +218,8 @@ func strconvItoa(n int) string {
 func keywords() []string {
 	return []string{
 		"if", "else", "while", "for", "call", "define", "return", "discard",
-		"input", "print", "import", "export", "del", "global", "local", "not", "is",
+		"input", "inputln", "print", "println", "import", "export", "del", "global",
+		"local", "not", "is",
 		"and", "or", "true", "false", "null", "try", "except", "finally", "raise",
 		"break", "continue", "stop", "match", "case", "in",
 	}

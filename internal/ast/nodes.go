@@ -113,6 +113,28 @@ func (n *FuncCallNode) expressionNode()      {}
 func (n *FuncCallNode) TokenLiteral() string { return "define" }
 func (n *FuncCallNode) Pos() Position        { return n.Position }
 
+// FuncRefNode is a `call <name>` expression without parentheses: it evaluates
+// to the function value bound to Name (first-class function reference).
+type FuncRefNode struct {
+	Name     string
+	Position Position
+}
+
+func (n *FuncRefNode) expressionNode()      {}
+func (n *FuncRefNode) TokenLiteral() string { return "call" }
+func (n *FuncRefNode) Pos() Position        { return n.Position }
+
+// IndexNode is `collection[index]` element access.
+type IndexNode struct {
+	Collection Expression
+	Index      Expression
+	Position   Position
+}
+
+func (n *IndexNode) expressionNode()      {}
+func (n *IndexNode) TokenLiteral() string { return "[" }
+func (n *IndexNode) Pos() Position        { return n.Position }
+
 type ReturnNode struct {
 	Value    Expression
 	Position Position
@@ -148,6 +170,29 @@ type InputNode struct {
 func (n *InputNode) statementNode()       {}
 func (n *InputNode) TokenLiteral() string { return "input" }
 func (n *InputNode) Pos() Position        { return n.Position }
+
+// InputlnNode is `inputln`: like `input` (writes to stdout) but always
+// terminates the line with a newline.
+type InputlnNode struct {
+	Value    Expression
+	Position Position
+}
+
+func (n *InputlnNode) statementNode()       {}
+func (n *InputlnNode) TokenLiteral() string { return "inputln" }
+func (n *InputlnNode) Pos() Position        { return n.Position }
+
+// PrintlnNode is `println`: like `print` (reads a line from stdin) with an
+// optional prompt; the trailing newline is stripped from the returned string.
+type PrintlnNode struct {
+	Prompt   Expression
+	Position Position
+}
+
+func (n *PrintlnNode) statementNode()       {}
+func (n *PrintlnNode) expressionNode()      {}
+func (n *PrintlnNode) TokenLiteral() string { return "println" }
+func (n *PrintlnNode) Pos() Position        { return n.Position }
 
 type PrintNode struct {
 	Prompt   Expression
