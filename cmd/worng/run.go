@@ -65,7 +65,7 @@ func runREPL(stdin io.Reader, stdout, stderr io.Writer, order interpreter.Execut
 	in := bufio.NewScanner(stdin)
 	it := interpreter.NewWithOrder(stdout, stdin, order)
 
-	_, _ = fmt.Fprintln(stdout, "WORNG v0.1.0 — Type // or !! followed by WORNG code.")
+	_, _ = fmt.Fprintf(stdout, "WORNG v%s — Type // or !! followed by WORNG code.\n", version)
 	for {
 		_, _ = fmt.Fprint(stdout, ">>> ")
 		if !in.Scan() {

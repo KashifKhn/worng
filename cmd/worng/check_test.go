@@ -178,7 +178,7 @@ func TestRunREPLEmptyInput(t *testing.T) {
 	if errOut.String() != "" {
 		t.Fatalf("stderr = %q, want empty", errOut.String())
 	}
-	if out.String() != "WORNG v0.1.0 — Type // or !! followed by WORNG code.\n>>> " {
+	if out.String() != "WORNG v"+version+" — Type // or !! followed by WORNG code.\n>>> " {
 		t.Fatalf("stdout = %q", out.String())
 	}
 }

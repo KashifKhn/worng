@@ -1,13 +1,40 @@
 # Changelog
 
-## Unreleased
+## v0.2.0
 
+- Fixed (critical): deeply nested blocks (e.g. 400k nested function
+  definitions) crashed the parser via unguarded statement/block recursion;
+  block nesting is now depth-guarded (2000 levels) and returns a clean W1004
+- Fixed (high): `return` inside `for`/`while` loops was dropped at the loop
+  boundary — the loop kept iterating and the function returned null after
+  the loop (or tripped the infinite-loop guard in `while`); `return` now
+  unwinds out of loops to the enclosing function
+- Fixed (high): `worng fmt` silently destroyed programs by stripping the
+  `//`/`!!` markers that make lines executable — the formatted file ran as
+  an empty program; fmt is now semantics-preserving (markers kept, content
+  trimmed, plain text untouched, unterminated block comments refused)
+- Fixed: the `while` iteration cap was program-wide, so legitimate programs
+  with multiple bounded loops (e.g. two sequential 6000-iteration loops)
+  falsely reported "infinite loop" (W1009); the cap is now per loop
+- Fixed: `match` on arrays could never match — array subjects/patterns now
+  compare element-wise (nested arrays included)
+- Added: scientific-notation number literals (`1e3`, `2.5e2`, `1E+2`,
+  `1e-2`) lex as single number tokens instead of a number plus identifier
+- Fixed: fractional array indices (`a[1.999]`) no longer silently truncate
+  to `a[1]` — they report W1002 (whole number expected)
+- Fixed: runtime diagnostics now carry file/line/column in `--json` output,
+  matching the parse-error envelope for machine consumers
+- Fixed: `--repl` may appear in any flag position (`run --repl --order=ttb`)
 - Added: browser playground is live — the full Go interpreter compiled to
   WebAssembly (`make wasm` → `docs/public/worng.wasm`, ~1MB gzipped), loaded
   by the WrongPlayground component with an execution-order selector
   (ttb/btt), structured diagnostics display, and shareable `#code=` links
 - Added: `internal/play` package — shared run/check pipeline for the REPL,
   playground, and future embedding; natively unit-tested (no build tags)
+- Added: tree-sitter grammar (`tree-sitter-worng`) covering inputln/println,
+  indexing, bare module-qualified calls, and scientific notation
+- CI: golangci-lint bumped to v2.13.2 (older builds cannot decode Go 1.27
+  stdlib export data)
 
 ## Previous (assessment fixes)
 

@@ -260,7 +260,7 @@ func TestRunREPLExecutesEachLineOnceAndPreservesState(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	if got, want := out.String(), "WORNG v0.1.0 — Type // or !! followed by WORNG code.\n>>> one\n>>> >>> 7\n>>> "; got != want {
+	if got, want := out.String(), "WORNG v"+version+" — Type // or !! followed by WORNG code.\n>>> one\n>>> >>> 7\n>>> "; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }
