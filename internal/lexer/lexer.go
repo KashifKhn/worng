@@ -314,6 +314,26 @@ func (l *Lexer) readNumber() string {
 		}
 	}
 
+	// Scientific notation: 1e3, 2.5e-3, 7E+2. The exponent marker only
+	// belongs to the number when a digit (or sign + digit) follows;
+	// otherwise "1e" stays NUMBER(1) + IDENT(e) as before.
+	if l.matchByte('e') || l.matchByte('E') {
+		expLen := 1
+		if sign, ok := l.peekRuneAt(l.pos + 1); ok && (sign == '+' || sign == '-') {
+			expLen = 2
+		}
+		if d, ok := l.peekRuneAt(l.pos + expLen); ok && isASCIIDigit(d) {
+			l.consumeString(l.input[l.pos : l.pos+expLen+1]) // marker (+ sign) + first digit
+			for {
+				r, ok := l.peekRune()
+				if !ok || !isASCIIDigit(r) {
+					break
+				}
+				l.consumeRune()
+			}
+		}
+	}
+
 	return l.input[start:l.pos]
 }
 
